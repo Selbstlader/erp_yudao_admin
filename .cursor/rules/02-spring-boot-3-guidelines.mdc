@@ -1,0 +1,322 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Spring Boot 3 开发指南
+
+## 基本原则
+1. **模块化设计**: 遵循模块化设计原则，每个模块应该有明确的职责边界
+2. **依赖注入**: 优先使用构造器注入，而非字段注入，以便于测试和提高代码可读性
+3. **统一异常处理**: 使用全局异常处理机制，避免在各处重复处理异常
+4. **参数校验**: 使用 Bean Validation 进行参数校验，确保数据的完整性和正确性
+5. **代码注释**: 所有代码必须添加注释，特别是解释为什么这样实现（而不仅是做了什么）
+
+## 项目架构
+本项目采用多模块架构设计，主要包括:
+- **基础框架层**: yudao-framework 提供各种基础设施支持
+- **业务模块层**: 如 yudao-module-erp 实现具体业务功能
+- **应用服务层**: yudao-server 负责启动和配置应用
+
+## Controller 层规范
+1. **路径命名**: 使用 RESTful 风格，如 `/api/erp/product`
+2. **参数校验**: 使用 `@Valid` 或 `@Validated` 注解进行参数校验
+3. **返回值封装**: 统一使用 CommonResult 封装返回结果
+4. **权限控制**: 使用 Spring Security 注解控制访问权限
+
+```java
+/**
+ * 产品 Controller
+ * 
+ * @author 作者名
+ */
+@RestController
+@RequestMapping("/erp/product")
+@Validated
+public class ProductController {
+    
+    /**
+     * 创建产品
+     * 
+     * @param createReqVO 创建产品请求参数
+     * @return 产品编号
+     */
+    @PostMapping("/create")
+    @PreAuthorize("@ss.hasPermission('erp:product:create')")
+    public CommonResult<Long> createProduct(@Valid @RequestBody ProductCreateReqVO createReqVO) {
+        // 实现逻辑
+    }
+}
+```
+
+## Service 层规范
+1. **接口设计**: 每个 Service 都应该有对应的接口定义
+2. **事务管理**: 使用 `@Transactional` 注解管理事务
+3. **业务逻辑**: 复杂业务逻辑应放在 Service 层处理
+
+```java
+/**
+ * 产品 Service 接口
+ * 
+ * @author 作者名
+ */
+public interface ProductService {
+    
+    /**
+     * 创建产品
+     * 
+     * @param createReqVO 创建产品请求参数
+     * @return 产品编号
+     */
+    Long createProduct(ProductCreateReqVO createReqVO);
+}
+
+/**
+ * 产品 Service 实现类
+ * 
+ * @author 作者名
+ */
+@Service
+public class ProductServiceImpl implements ProductService {
+    
+    /**
+     * 产品 Mapper 接口
+     * 使用构造器注入而非字段注入，便于测试和提高代码可读性
+     */
+    private final ProductMapper productMapper;
+    
+    public ProductServiceImpl(ProductMapper productMapper) {
+        this.productMapper = productMapper;
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createProduct(ProductCreateReqVO createReqVO) {
+        // 实现逻辑
+    }
+}
+```
+
+## Mapper 层规范
+1. **命名规范**: 接口名为 `实体名 + Mapper`
+2. **注解使用**: 使用 MyBatis-Plus 注解简化开发
+3. **XML 映射**: 复杂 SQL 应放在 XML 文件中
+
+```java
+/**
+ * 产品 Mapper 接口
+ * 
+ * @author 作者名
+ */
+@Mapper
+public interface ProductMapper extends BaseMapper<ProductDO> {
+    
+    /**
+     * 自定义查询方法
+     * 
+     * @param condition 查询条件
+     * @return 产品列表
+     */
+    List<ProductDO> selectList(ProductQueryCondition condition);
+}
+```
+
+## 实体类规范
+1. **命名规范**: 数据库实体类以 `DO` 结尾，如 `ProductDO`
+2. **字段注释**: 每个字段都应该有注释，说明其用途
+3. **使用 Lombok**: 使用 Lombok 简化代码
+
+```java
+/**
+ * 产品实体类
+ * 
+ * @author 作者名
+ */
+@TableName("erp_product")
+@Data
+public class ProductDO {
+    
+    /**
+     * 产品编号
+     * 使用自增主键，因为这样可以保证唯一性且便于索引优化
+     */
+    @TableId(type = IdType.AUTO)
+    private Long id;
+    
+    /**
+     * 产品名称
+     * 不允许为空，因为产品必须有名称以便于识别
+     */
+    @NotNull
+    private String name;
+    
+    /**
+     * 产品价格
+     * 使用 BigDecimal 而非 double，避免浮点数精度问题
+     */
+    private BigDecimal price;
+}
+```
+
+## 配置管理
+1. **配置分离**: 不同环境的配置应该分离
+2. **敏感信息**: 敏感信息应使用环境变量或配置中心管理
+3. **配置说明**: 配置项应有清晰的注释
+
+```yaml
+# 应用配置
+spring:
+  # 数据源配置
+  datasource:
+    # 使用 Druid 连接池，因为它提供了丰富的监控和防SQL注入功能
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/erp?useSSL=false&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+```
+
+## 单元测试规范
+1. **测试覆盖**: 核心业务逻辑必须有单元测试
+2. **测试隔离**: 测试应该相互独立，不应依赖外部资源
+3. **测试可读性**: 测试方法名应清晰表达测试目的
+
+```java
+/**
+ * 产品 Service 单元测试
+ * 
+ * @author 作者名
+ */
+@SpringBootTest
+public class ProductServiceTest {
+    
+    @Autowired
+    private ProductService productService;
+    
+    @MockBean
+    private ProductMapper productMapper;
+    
+    /**
+     * 测试创建产品成功场景
+     * 验证当提供有效参数时，产品创建是否成功
+     */
+    @Test
+    public void testCreateProduct_Success() {
+        // 准备测试数据和Mock行为
+        
+        // 执行测试
+        
+        // 验证结果
+    }
+}
+```
+
+## 日志规范
+1. **日志级别**: 正确使用不同的日志级别（ERROR, WARN, INFO, DEBUG, TRACE）
+2. **日志内容**: 日志应包含足够的上下文信息，便于问题排查
+3. **敏感信息**: 避免记录敏感信息
+
+```java
+/**
+ * 记录用户登录，使用 INFO 级别因为这是正常业务操作
+ * 
+ * @param username 用户名
+ */
+log.info("用户 [{}] 登录成功", username);
+
+/**
+ * 记录系统异常，使用 ERROR 级别因为这表示系统出现问题
+ * 
+ * @param e 异常信息
+ */
+log.error("系统处理订单时发生异常", e);
+```
+
+## 异常处理规范
+1. **自定义异常**: 使用自定义异常表达业务异常
+2. **全局处理**: 使用 `@RestControllerAdvice` 进行全局异常处理
+3. **异常粒度**: 异常应该有合适的粒度，便于定位问题
+
+```java
+/**
+ * 全局异常处理器
+ * 
+ * @author 作者名
+ */
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+    
+    /**
+     * 处理业务异常
+     * 使用统一的异常处理，避免在各个Controller中重复处理异常逻辑
+     * 
+     * @param ex 业务异常
+     * @return 错误响应
+     */
+    @ExceptionHandler(ServiceException.class)
+    public CommonResult<Void> handleServiceException(ServiceException ex) {
+        // 处理逻辑
+    }
+}
+```
+
+## 安全规范
+1. **认证授权**: 使用 Spring Security 进行认证和授权
+2. **密码加密**: 密码必须加密存储
+3. **CSRF 防护**: 启用 CSRF 防护
+4. **XSS 防护**: 防止 XSS 攻击
+
+## 缓存使用规范
+1. **缓存粒度**: 合理设置缓存粒度，避免缓存过多数据
+2. **缓存更新**: 及时更新或失效缓存
+3. **缓存穿透**: 防止缓存穿透问题
+
+```java
+/**
+ * 获取产品信息，使用缓存提高性能
+ * 
+ * @param id 产品ID
+ * @return 产品信息
+ */
+@Cacheable(cacheNames = "product", key = "#id")
+public ProductDO getProduct(Long id) {
+    // 实现逻辑
+}
+
+/**
+ * 更新产品信息后，清除相关缓存
+ * 
+ * @param product 产品信息
+ */
+@CacheEvict(cacheNames = "product", key = "#product.id")
+public void updateProduct(ProductDO product) {
+    // 实现逻辑
+}
+```
+
+## Docker 部署规范
+1. **镜像构建**: 使用多阶段构建优化镜像大小
+2. **环境变量**: 通过环境变量注入配置
+3. **健康检查**: 配置健康检查确保服务可用
+
+```dockerfile
+# 多阶段构建，第一阶段编译
+FROM maven:3.8-openjdk-17 AS builder
+WORKDIR /app
+COPY . .
+# 使用Maven包缓存和并行构建加速构建过程
+RUN mvn -B package -DskipTests --no-transfer-progress
+
+# 第二阶段，运行阶段
+FROM openjdk:17-slim
+WORKDIR /app
+# 只复制必要的文件，减小镜像体积
+COPY --from=builder /app/yudao-server/target/*.jar app.jar
+# 使用环境变量配置应用
+ENV SPRING_PROFILES_ACTIVE=prod
+# 配置健康检查
+HEALTHCHECK --interval=30s --timeout=3s CMD curl -f http://localhost:8080/actuator/health || exit 1
+# 使用非root用户运行应用，提高安全性
+USER 1000
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```

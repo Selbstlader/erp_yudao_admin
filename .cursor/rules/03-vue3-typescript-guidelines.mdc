@@ -1,0 +1,705 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Vue 3 + TypeScript 前端开发指南
+
+## 基本原则
+1. **组件化开发**: 将界面拆分为可复用的组件，提高代码复用性和可维护性
+2. **类型安全**: 充分利用 TypeScript 的类型系统，减少运行时错误
+3. **状态管理**: 合理使用 Pinia 进行状态管理，避免组件间的过度耦合
+4. **代码注释**: 所有代码必须添加注释，特别是解释为什么这样实现（而不仅是做了什么）
+5. **响应式设计**: 确保界面在不同设备上都能良好展示
+
+## 项目结构
+前端项目位于 [yudao-ui/yudao-ui-admin-vue3/](mdc:yudao-ui/yudao-ui-admin-vue3/) 目录下，主要结构如下：
+- **src/api/**: API 接口定义
+- **src/assets/**: 静态资源文件
+- **src/components/**: 公共组件
+- **src/hooks/**: 可复用的组合式函数
+- **src/layout/**: 布局组件
+- **src/router/**: 路由配置
+- **src/store/**: Pinia 状态管理
+- **src/utils/**: 工具函数
+- **src/views/**: 页面组件
+
+## 组件开发规范
+1. **命名规范**: 组件文件名使用 PascalCase，如 `ProductList.vue`
+2. **组件结构**: 使用 `<script setup>` 语法，提高开发效率
+3. **类型定义**: 使用 TypeScript 类型和接口定义组件 props 和状态
+4. **样式隔离**: 使用 scoped 样式或 CSS 模块避免样式污染
+
+```vue
+<template>
+  <div class="product-list">
+    <el-table :data="productList" v-loading="loading">
+      <!-- 表格内容 -->
+    </el-table>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import type { ProductItem } from '@/types/product'
+import { getProductList } from '@/api/erp/product'
+
+// 定义组件属性，使用 TypeScript 类型确保类型安全
+interface Props {
+  categoryId?: number // 可选属性使用 ? 标记
+}
+
+// 使用 defineProps 宏函数定义属性，并提供默认值
+const props = withDefaults(defineProps<Props>(), {
+  categoryId: undefined
+})
+
+// 组件状态
+const loading = ref(false)
+const productList = ref<ProductItem[]>([])
+
+// 方法定义
+/**
+ * 加载产品列表
+ * 使用 async/await 处理异步请求，提高代码可读性
+ */
+const loadProducts = async () => {
+  // 显示加载状态
+  loading.value = true
+  try {
+    // 调用 API 获取数据
+    const res = await getProductList({ categoryId: props.categoryId })
+    // 更新组件状态
+    productList.value = res.data
+  } catch (error) {
+    // 错误处理
+    console.error('加载产品列表失败:', error)
+  } finally {
+    // 无论成功失败都关闭加载状态
+    loading.value = false
+  }
+}
+
+// 生命周期钩子
+onMounted(() => {
+  // 组件挂载后加载数据
+  loadProducts()
+})
+
+// 向父组件暴露方法
+defineExpose({
+  reload: loadProducts
+})
+</script>
+
+<style scoped>
+/* 使用 scoped 确保样式不会影响其他组件 */
+.product-list {
+  margin: 20px 0;
+}
+</style>
+```
+
+## API 接口规范
+1. **模块化管理**: 按业务模块组织 API 文件
+2. **类型定义**: 为请求参数和响应结果定义类型
+3. **统一处理**: 使用统一的请求封装处理错误和认证
+
+```typescript
+// src/api/erp/product.ts
+
+import request from '@/utils/request'
+import type { PageResult, PageParam } from '@/types/global'
+import type { ProductItem, ProductDetail, ProductCreateData } from '@/types/product'
+
+/**
+ * 获取产品列表（分页）
+ * 
+ * @param params 查询参数
+ * @returns 分页结果
+ */
+export function getProductPage(params: PageParam & { 
+  name?: string; 
+  categoryId?: number 
+}): Promise<PageResult<ProductItem>> {
+  return request({
+    url: '/erp/product/page',
+    method: 'get',
+    params
+  })
+}
+
+/**
+ * 创建产品
+ * 使用 POST 方法创建资源，符合 RESTful 规范
+ * 
+ * @param data 产品数据
+ * @returns 创建结果
+ */
+export function createProduct(data: ProductCreateData): Promise<number> {
+  return request({
+    url: '/erp/product/create',
+    method: 'post',
+    data
+  })
+}
+
+/**
+ * 获取产品详情
+ * 
+ * @param id 产品ID
+ * @returns 产品详情
+ */
+export function getProductDetail(id: number): Promise<ProductDetail> {
+  return request({
+    url: `/erp/product/get?id=${id}`,
+    method: 'get'
+  })
+}
+```
+
+## 类型定义规范
+1. **接口优先**: 优先使用 interface 定义对象类型，便于扩展
+2. **类型导出**: 将类型定义集中管理并导出，方便复用
+3. **注释完善**: 为每个类型和属性添加注释
+
+```typescript
+// src/types/product.ts
+
+/**
+ * 产品列表项
+ */
+export interface ProductItem {
+  /**
+   * 产品ID
+   */
+  id: number;
+  
+  /**
+   * 产品名称
+   */
+  name: string;
+  
+  /**
+   * 产品价格
+   * 使用字符串类型，避免 JavaScript 浮点数精度问题
+   */
+  price: string;
+  
+  /**
+   * 产品分类ID
+   */
+  categoryId: number;
+  
+  /**
+   * 产品分类名称
+   */
+  categoryName: string;
+  
+  /**
+   * 创建时间
+   */
+  createTime: string;
+}
+
+/**
+ * 产品详情
+ * 扩展产品列表项，添加更多详细信息
+ */
+export interface ProductDetail extends ProductItem {
+  /**
+   * 产品描述
+   */
+  description: string;
+  
+  /**
+   * 产品图片URL列表
+   */
+  imageUrls: string[];
+  
+  /**
+   * 产品规格
+   */
+  specification: string;
+}
+
+/**
+ * 产品创建数据
+ * 创建产品时需要的字段
+ */
+export interface ProductCreateData {
+  /**
+   * 产品名称
+   */
+  name: string;
+  
+  /**
+   * 产品价格
+   */
+  price: string;
+  
+  /**
+   * 产品分类ID
+   */
+  categoryId: number;
+  
+  /**
+   * 产品描述（可选）
+   */
+  description?: string;
+  
+  /**
+   * 产品图片URL列表（可选）
+   */
+  imageUrls?: string[];
+  
+  /**
+   * 产品规格（可选）
+   */
+  specification?: string;
+}
+```
+
+## 路由管理规范
+1. **模块化**: 按业务模块拆分路由配置
+2. **懒加载**: 使用路由懒加载提高首屏加载速度
+3. **权限控制**: 在路由配置中定义访问权限
+
+```typescript
+// src/router/modules/erp.ts
+
+import type { RouteRecordRaw } from 'vue-router'
+
+/**
+ * ERP 模块路由
+ * 使用懒加载提高首屏加载速度
+ */
+const erpRoutes: RouteRecordRaw = {
+  path: '/erp',
+  name: 'ERP',
+  component: () => import('@/layout/index.vue'),
+  meta: {
+    title: 'ERP 管理',
+    icon: 'erp',
+    order: 5 // 菜单排序
+  },
+  children: [
+    {
+      path: 'product',
+      name: 'ErpProduct',
+      component: () => import('@/views/erp/product/index.vue'),
+      meta: {
+        title: '产品管理',
+        // 定义访问权限，用户需要拥有 'erp:product:list' 权限才能访问
+        permission: 'erp:product:list'
+      }
+    },
+    {
+      path: 'product/create',
+      name: 'ErpProductCreate',
+      component: () => import('@/views/erp/product/create.vue'),
+      meta: {
+        title: '创建产品',
+        permission: 'erp:product:create',
+        // 标记为隐藏路由，不在菜单中显示
+        hidden: true
+      }
+    }
+  ]
+}
+
+export default erpRoutes
+```
+
+## 状态管理规范
+1. **模块化**: 按业务模块拆分 Store
+2. **类型安全**: 使用 TypeScript 定义 Store 的状态和操作
+3. **持久化**: 需要持久化的状态使用 pinia-plugin-persistedstate
+
+```typescript
+// src/store/modules/product.ts
+
+import { defineStore } from 'pinia'
+import type { ProductItem } from '@/types/product'
+import { getProductList } from '@/api/erp/product'
+
+/**
+ * 产品状态管理
+ * 使用 Pinia 的 Options API 风格定义 store
+ */
+export const useProductStore = defineStore('product', {
+  /**
+   * 状态定义
+   * 明确指定类型，提高代码可读性和类型安全
+   */
+  state: () => ({
+    // 产品列表
+    productList: [] as ProductItem[],
+    // 加载状态
+    loading: false,
+    // 当前选中的产品ID
+    currentProductId: null as number | null
+  }),
+  
+  /**
+   * Getters 定义
+   * 类似于计算属性，用于从 state 派生数据
+   */
+  getters: {
+    /**
+     * 获取当前选中的产品
+     * 
+     * @returns 当前选中的产品，如果未选中则返回 null
+     */
+    currentProduct(): ProductItem | null {
+      if (!this.currentProductId) return null
+      return this.productList.find(item => item.id === this.currentProductId) || null
+    }
+  },
+  
+  /**
+   * Actions 定义
+   * 包含可以修改状态的方法
+   */
+  actions: {
+    /**
+     * 加载产品列表
+     * 
+     * @param params 查询参数
+     */
+    async loadProductList(params = {}) {
+      this.loading = true
+      try {
+        const res = await getProductList(params)
+        this.productList = res.data
+      } catch (error) {
+        console.error('加载产品列表失败:', error)
+      } finally {
+        this.loading = false
+      }
+    },
+    
+    /**
+     * 设置当前选中的产品
+     * 
+     * @param productId 产品ID
+     */
+    setCurrentProduct(productId: number) {
+      this.currentProductId = productId
+    }
+  },
+  
+  /**
+   * 持久化配置
+   * 将状态保存到 localStorage，页面刷新后仍然可用
+   */
+  persist: {
+    key: 'erp-product',
+    paths: ['currentProductId'] // 只持久化需要的状态
+  }
+})
+```
+
+## 工具函数规范
+1. **模块化**: 按功能拆分工具函数
+2. **类型定义**: 为函数参数和返回值定义类型
+3. **纯函数**: 尽量使用纯函数，避免副作用
+
+```typescript
+// src/utils/format.ts
+
+/**
+ * 格式化金额
+ * 使用纯函数，没有副作用，便于测试和维护
+ * 
+ * @param amount 金额
+ * @param currency 货币符号，默认为 ¥
+ * @param decimals 小数位数，默认为 2
+ * @returns 格式化后的金额字符串
+ */
+export function formatAmount(
+  amount: number | string, 
+  currency: string = '¥', 
+  decimals: number = 2
+): string {
+  // 转换为数字
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount
+  
+  // 检查是否为有效数字
+  if (isNaN(num)) {
+    return `${currency}0.00`
+  }
+  
+  // 格式化金额
+  return `${currency}${num.toFixed(decimals)}`
+}
+
+/**
+ * 格式化日期时间
+ * 
+ * @param date 日期对象或时间戳
+ * @param format 格式化模式，默认为 YYYY-MM-DD HH:mm:ss
+ * @returns 格式化后的日期时间字符串
+ */
+export function formatDateTime(
+  date: Date | string | number,
+  format: string = 'YYYY-MM-DD HH:mm:ss'
+): string {
+  // 实现日期格式化逻辑
+  // ...
+  
+  return formattedDate
+}
+```
+
+## 请求封装规范
+1. **统一处理**: 统一处理请求错误和认证
+2. **类型支持**: 支持 TypeScript 泛型，提高类型安全
+3. **拦截器**: 使用拦截器处理请求和响应
+
+```typescript
+// src/utils/request.ts
+
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios'
+import { ElMessage } from 'element-plus'
+import { useUserStore } from '@/store/modules/user'
+
+/**
+ * 创建 axios 实例
+ * 配置基础 URL 和超时时间
+ */
+const service = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL,
+  timeout: 50000
+})
+
+/**
+ * 请求拦截器
+ * 在请求发送前处理请求配置
+ */
+service.interceptors.request.use(
+  (config) => {
+    // 获取用户 token
+    const userStore = useUserStore()
+    if (userStore.token) {
+      // 将 token 添加到请求头
+      config.headers['Authorization'] = `Bearer ${userStore.token}`
+    }
+    return config
+  },
+  (error) => {
+    // 请求错误处理
+    console.error('请求错误:', error)
+    return Promise.reject(error)
+  }
+)
+
+/**
+ * 响应拦截器
+ * 在收到响应后统一处理响应
+ */
+service.interceptors.response.use(
+  (response: AxiosResponse) => {
+    const res = response.data
+    
+    // 检查响应状态
+    if (res.code !== 0) {
+      // 显示错误消息
+      ElMessage.error(res.msg || '请求失败')
+      
+      // 处理特定错误码
+      if (res.code === 401) {
+        // token 过期，需要重新登录
+        const userStore = useUserStore()
+        userStore.logout()
+      }
+      
+      return Promise.reject(new Error(res.msg || '请求失败'))
+    }
+    
+    // 返回响应数据
+    return res
+  },
+  (error) => {
+    // 响应错误处理
+    console.error('响应错误:', error)
+    ElMessage.error(error.message || '网络错误')
+    return Promise.reject(error)
+  }
+)
+
+/**
+ * 封装 axios 请求方法
+ * 使用泛型支持类型推导
+ * 
+ * @param config 请求配置
+ * @returns Promise 对象
+ */
+const request = <T = any>(config: AxiosRequestConfig): Promise<T> => {
+  return service(config) as unknown as Promise<T>
+}
+
+export default request
+```
+
+## 样式规范
+1. **BEM 命名**: 使用 BEM 命名规范组织 CSS 类名
+2. **变量使用**: 使用 CSS 变量统一管理颜色、字体等
+3. **响应式设计**: 使用媒体查询适配不同设备
+
+```scss
+/* src/styles/variables.scss */
+
+// 颜色变量
+:root {
+  // 主题色
+  --el-color-primary: #409eff;
+  
+  // 文本颜色
+  --el-text-color-primary: #303133;
+  --el-text-color-regular: #606266;
+  --el-text-color-secondary: #909399;
+  
+  // 边框颜色
+  --el-border-color: #dcdfe6;
+  --el-border-color-light: #e4e7ed;
+  
+  // 背景颜色
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #f2f3f5;
+  
+  // 字体大小
+  --el-font-size-base: 14px;
+  --el-font-size-small: 13px;
+  --el-font-size-large: 16px;
+}
+
+// 响应式断点
+$breakpoints: (
+  'xs': 576px,
+  'sm': 768px,
+  'md': 992px,
+  'lg': 1200px,
+  'xl': 1600px
+);
+
+// 响应式混合宏
+@mixin respond-to($breakpoint) {
+  @if map-has-key($breakpoints, $breakpoint) {
+    @media (max-width: map-get($breakpoints, $breakpoint)) {
+      @content;
+    }
+  } @else {
+    @warn "未知的断点: #{$breakpoint}";
+  }
+}
+```
+
+## 国际化规范
+1. **模块化**: 按模块组织翻译文件
+2. **类型支持**: 使用 TypeScript 提供类型支持
+3. **插值语法**: 使用命名插值，提高可读性
+
+```typescript
+// src/locales/zh-CN/erp.ts
+
+export default {
+  product: {
+    title: '产品管理',
+    create: '创建产品',
+    edit: '编辑产品',
+    detail: '产品详情',
+    name: '产品名称',
+    price: '产品价格',
+    category: '产品分类',
+    description: '产品描述',
+    createSuccess: '产品创建成功',
+    updateSuccess: '产品更新成功',
+    deleteConfirm: '确定要删除产品 {name} 吗？',
+    deleteSuccess: '产品删除成功'
+  }
+}
+
+// 使用示例
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+// 使用命名插值
+const confirmMessage = t('erp.product.deleteConfirm', { name: product.name })
+```
+
+## 单元测试规范
+1. **组件测试**: 使用 Vue Test Utils 测试组件
+2. **单元测试**: 使用 Vitest 进行单元测试
+3. **测试覆盖**: 关键组件和工具函数必须有测试
+
+```typescript
+// src/utils/__tests__/format.test.ts
+
+import { describe, it, expect } from 'vitest'
+import { formatAmount } from '../format'
+
+describe('formatAmount', () => {
+  it('应该正确格式化数字金额', () => {
+    expect(formatAmount(1000)).toBe('¥1000.00')
+    expect(formatAmount(1000.5)).toBe('¥1000.50')
+    expect(formatAmount(1000.56)).toBe('¥1000.56')
+    expect(formatAmount(1000.567)).toBe('¥1000.57') // 四舍五入
+  })
+  
+  it('应该正确格式化字符串金额', () => {
+    expect(formatAmount('1000')).toBe('¥1000.00')
+    expect(formatAmount('1000.5')).toBe('¥1000.50')
+  })
+  
+  it('应该使用自定义货币符号', () => {
+    expect(formatAmount(1000, '$')).toBe('$1000.00')
+    expect(formatAmount(1000, '€')).toBe('€1000.00')
+  })
+  
+  it('应该使用自定义小数位数', () => {
+    expect(formatAmount(1000, '¥', 0)).toBe('¥1000')
+    expect(formatAmount(1000, '¥', 3)).toBe('¥1000.000')
+  })
+  
+  it('应该处理无效输入', () => {
+    expect(formatAmount('invalid')).toBe('¥0.00')
+  })
+})
+```
+
+## 性能优化规范
+1. **懒加载**: 路由和组件使用懒加载
+2. **虚拟列表**: 大数据列表使用虚拟滚动
+3. **缓存策略**: 合理使用 `keep-alive` 缓存组件
+4. **打包优化**: 使用 Vite 的构建优化功能
+
+```typescript
+// 路由懒加载示例
+const routes = [
+  {
+    path: '/erp/product',
+    component: () => import('@/views/erp/product/index.vue')
+  }
+]
+
+// 组件懒加载示例
+const ProductDetail = defineAsyncComponent(() => 
+  import('@/components/ProductDetail.vue')
+)
+
+// 使用 keep-alive 缓存组件
+<keep-alive :include="['ProductList']">
+  <component :is="currentComponent" />
+</keep-alive>
+```
+
+## 代码审查清单
+在提交代码前，请确保：
+1. 代码通过 ESLint 和 TypeScript 检查
+2. 所有组件和函数都有适当的注释，特别是解释为什么这样实现
+3. 没有硬编码的字符串，使用国际化资源
+4. 样式遵循 BEM 命名规范
+5. 关键功能有单元测试
+6. 代码没有明显的性能问题
+7. 组件设计符合可复用性原则

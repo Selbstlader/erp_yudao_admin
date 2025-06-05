@@ -1,0 +1,605 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# ERP 模块开发指南
+
+## 概述
+ERP（Enterprise Resource Planning，企业资源计划）模块是系统的核心业务模块，用于管理企业的各种资源和业务流程。本指南提供了开发 ERP 模块的最佳实践和规范。
+
+## 模块结构
+ERP 模块位于 [yudao-module-erp/](mdc:yudao-module-erp) 目录下，主要包括以下子模块：
+
+- **产品管理**: 管理企业的产品信息
+- **采购管理**: 管理采购订单、供应商等
+- **销售管理**: 管理销售订单、客户等
+- **库存管理**: 管理仓库、库存等
+- **财务管理**: 管理财务相关的业务
+
+每个子模块应遵循以下目录结构：
+
+```
+yudao-module-erp/
+└── yudao-module-erp-biz/
+    └── src/main/java/cn/iocoder/yudao/module/erp/
+        ├── controller/         # 控制器层
+        │   ├── admin/          # 管理后台 API
+        │   └── app/            # 移动端 API（如果有）
+        ├── convert/            # 对象转换器
+        ├── dal/                # 数据访问层
+        │   ├── dataobject/     # 数据对象（DO）
+        │   └── mysql/          # MySQL 相关
+        │       └── mapper/     # MyBatis Mapper
+        ├── enums/              # 枚举类
+        ├── service/            # 业务逻辑层
+        │   └── impl/           # 业务逻辑实现类
+        └── api/                # 模块 API 接口
+```
+
+## 数据库设计规范
+1. **表命名**: 使用 `erp_` 前缀，如 `erp_product`
+2. **字段命名**: 使用下划线命名法，如 `product_name`
+3. **必备字段**: 每个表必须包含以下字段：
+   - `id`: 主键
+   - `creator`: 创建者
+   - `create_time`: 创建时间
+   - `updater`: 更新者
+   - `update_time`: 更新时间
+   - `deleted`: 是否删除（逻辑删除）
+4. **索引设计**: 合理设计索引，提高查询性能
+5. **字段注释**: 每个字段必须有清晰的注释
+
+```sql
+CREATE TABLE `erp_product` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '产品编号',
+  `name` varchar(100) NOT NULL COMMENT '产品名称',
+  `price` decimal(10,2) NOT NULL COMMENT '产品价格',
+  `category_id` bigint NOT NULL COMMENT '分类编号',
+  `description` varchar(500) DEFAULT NULL COMMENT '产品描述',
+  `status` tinyint NOT NULL COMMENT '状态（0-禁用，1-启用）',
+  `creator` varchar(64) DEFAULT '' COMMENT '创建者',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updater` varchar(64) DEFAULT '' COMMENT '更新者',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+  PRIMARY KEY (`id`),
+  KEY `idx_category_id` (`category_id`) COMMENT '分类编号索引',
+  KEY `idx_status` (`status`) COMMENT '状态索引'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='产品信息表';
+```
+
+## 业务对象设计
+ERP 模块的业务对象应遵循以下规范：
+
+### 数据对象 (DO)
+数据对象与数据库表一一对应，命名为 `实体名 + DO`，如 `ProductDO`。
+
+```java
+/**
+ * 产品 DO
+ * 
+ * @author 作者名
+ */
+@TableName("erp_product")
+@Data
+@EqualsAndHashCode(callSuper = true)
+public class ProductDO extends BaseDO {
+    /**
+     * 产品编号
+     * 使用自增主键，便于数据库管理和索引优化
+     */
+    @TableId(type = IdType.AUTO)
+    private Long id;
+
+    /**
+     * 产品名称
+     * 不允许为空，因为产品必须有名称以便于识别
+     */
+    private String name;
+
+    /**
+     * 产品价格
+     * 使用 BigDecimal 类型，避免浮点数精度问题
+     */
+    private BigDecimal price;
+
+    /**
+     * 分类编号
+     */
+    private Long categoryId;
+
+    /**
+     * 产品描述
+     */
+    private String description;
+
+    /**
+     * 状态
+     * 0-禁用，1-启用
+     * 使用枚举类型提高代码可读性
+     */
+    private Integer status;
+}
+```
+
+### 请求/响应对象
+请求对象命名为 `实体名 + 操作 + ReqVO`，如 `ProductCreateReqVO`。
+响应对象命名为 `实体名 + RespVO`，如 `ProductRespVO`。
+
+```java
+/**
+ * 产品创建请求 VO
+ * 
+ * @author 作者名
+ */
+@Data
+public class ProductCreateReqVO {
+    /**
+     * 产品名称
+     * 使用 @NotEmpty 注解进行参数校验，确保名称不为空
+     */
+    @NotEmpty(message = "产品名称不能为空")
+    private String name;
+
+    /**
+     * 产品价格
+     * 使用 @NotNull 和 @DecimalMin 注解进行参数校验
+     */
+    @NotNull(message = "产品价格不能为空")
+    @DecimalMin(value = "0", message = "产品价格必须大于等于0")
+    private BigDecimal price;
+
+    /**
+     * 分类编号
+     */
+    @NotNull(message = "分类编号不能为空")
+    private Long categoryId;
+
+    /**
+     * 产品描述
+     */
+    private String description;
+}
+```
+
+### 对象转换器
+使用 MapStruct 进行对象转换，命名为 `实体名 + Convert`，如 `ProductConvert`。
+
+```java
+/**
+ * 产品对象转换器
+ * 
+ * @author 作者名
+ */
+@Mapper(componentModel = "spring")
+public interface ProductConvert {
+    /**
+     * 将创建请求对象转换为 DO 对象
+     * 
+     * @param createReqVO 创建请求对象
+     * @return DO 对象
+     */
+    ProductDO convert(ProductCreateReqVO createReqVO);
+
+    /**
+     * 将 DO 对象转换为响应对象
+     * 
+     * @param productDO DO 对象
+     * @return 响应对象
+     */
+    ProductRespVO convert(ProductDO productDO);
+
+    /**
+     * 将 DO 对象列表转换为响应对象列表
+     * 
+     * @param productDOList DO 对象列表
+     * @return 响应对象列表
+     */
+    List<ProductRespVO> convertList(List<ProductDO> productDOList);
+}
+```
+
+## 业务逻辑实现
+业务逻辑应遵循以下规范：
+
+1. **接口设计**: 每个 Service 都应该有对应的接口定义
+2. **事务管理**: 使用 `@Transactional` 注解管理事务
+3. **异常处理**: 使用自定义异常表达业务异常
+4. **参数校验**: 在 Service 层进行业务参数校验
+
+```java
+/**
+ * 产品 Service 接口
+ * 
+ * @author 作者名
+ */
+public interface ProductService {
+    /**
+     * 创建产品
+     * 
+     * @param createReqVO 创建产品请求参数
+     * @return 产品编号
+     */
+    Long createProduct(ProductCreateReqVO createReqVO);
+
+    /**
+     * 更新产品
+     * 
+     * @param updateReqVO 更新产品请求参数
+     */
+    void updateProduct(ProductUpdateReqVO updateReqVO);
+
+    /**
+     * 删除产品
+     * 
+     * @param id 产品编号
+     */
+    void deleteProduct(Long id);
+
+    /**
+     * 获取产品
+     * 
+     * @param id 产品编号
+     * @return 产品对象
+     */
+    ProductDO getProduct(Long id);
+
+    /**
+     * 获取产品列表
+     * 
+     * @param ids 产品编号列表
+     * @return 产品列表
+     */
+    List<ProductDO> getProductList(Collection<Long> ids);
+
+    /**
+     * 获取产品分页
+     * 
+     * @param pageReqVO 分页请求参数
+     * @return 产品分页结果
+     */
+    PageResult<ProductDO> getProductPage(ProductPageReqVO pageReqVO);
+}
+```
+
+```java
+/**
+ * 产品 Service 实现类
+ * 
+ * @author 作者名
+ */
+@Service
+public class ProductServiceImpl implements ProductService {
+    /**
+     * 产品 Mapper
+     * 使用构造器注入，便于测试和提高代码可读性
+     */
+    private final ProductMapper productMapper;
+    
+    /**
+     * 分类 Service
+     * 用于校验分类是否存在
+     */
+    private final CategoryService categoryService;
+    
+    public ProductServiceImpl(ProductMapper productMapper, CategoryService categoryService) {
+        this.productMapper = productMapper;
+        this.categoryService = categoryService;
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createProduct(ProductCreateReqVO createReqVO) {
+        // 1. 校验分类存在
+        categoryService.validateCategoryExists(createReqVO.getCategoryId());
+        
+        // 2. 校验产品名称是否重复
+        validateProductNameUnique(null, createReqVO.getName());
+        
+        // 3. 插入产品
+        ProductDO product = ProductConvert.INSTANCE.convert(createReqVO);
+        // 设置初始状态为启用
+        product.setStatus(CommonStatusEnum.ENABLE.getStatus());
+        productMapper.insert(product);
+        
+        // 4. 返回产品编号
+        return product.getId();
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateProduct(ProductUpdateReqVO updateReqVO) {
+        // 1. 校验产品存在
+        validateProductExists(updateReqVO.getId());
+        
+        // 2. 校验分类存在
+        categoryService.validateCategoryExists(updateReqVO.getCategoryId());
+        
+        // 3. 校验产品名称是否重复
+        validateProductNameUnique(updateReqVO.getId(), updateReqVO.getName());
+        
+        // 4. 更新产品
+        ProductDO updateObj = ProductConvert.INSTANCE.convert(updateReqVO);
+        productMapper.updateById(updateObj);
+    }
+    
+    /**
+     * 校验产品名称是否重复
+     * 
+     * @param id 产品编号
+     * @param name 产品名称
+     */
+    private void validateProductNameUnique(Long id, String name) {
+        // 查询名称相同的产品
+        ProductDO product = productMapper.selectByName(name);
+        if (product == null) {
+            return;
+        }
+        
+        // 如果 id 为空，说明是新增产品，只要有重名就抛出异常
+        if (id == null) {
+            throw exception(PRODUCT_NAME_DUPLICATE);
+        }
+        
+        // 如果 id 不为空，判断是否为当前产品
+        if (!product.getId().equals(id)) {
+            throw exception(PRODUCT_NAME_DUPLICATE);
+        }
+    }
+    
+    /**
+     * 校验产品是否存在
+     * 
+     * @param id 产品编号
+     * @return 产品对象
+     */
+    private ProductDO validateProductExists(Long id) {
+        ProductDO product = productMapper.selectById(id);
+        if (product == null) {
+            throw exception(PRODUCT_NOT_EXISTS);
+        }
+        return product;
+    }
+}
+```
+
+## API 接口设计
+API 接口应遵循以下规范：
+
+1. **路径命名**: 使用 RESTful 风格，如 `/erp/product`
+2. **参数校验**: 使用 `@Valid` 或 `@Validated` 注解进行参数校验
+3. **返回值封装**: 统一使用 CommonResult 封装返回结果
+4. **权限控制**: 使用 Spring Security 注解控制访问权限
+
+```java
+/**
+ * 产品 Controller
+ * 
+ * @author 作者名
+ */
+@RestController
+@RequestMapping("/erp/product")
+@Validated
+public class ProductController {
+    /**
+     * 产品 Service
+     * 使用构造器注入，便于测试和提高代码可读性
+     */
+    private final ProductService productService;
+    
+    public ProductController(ProductService productService) {
+        this.productService = productService;
+    }
+    
+    /**
+     * 创建产品
+     * 使用 @PostMapping 注解，符合 RESTful 规范
+     * 
+     * @param createReqVO 创建产品请求参数
+     * @return 产品编号
+     */
+    @PostMapping("/create")
+    @PreAuthorize("@ss.hasPermission('erp:product:create')")
+    public CommonResult<Long> createProduct(@Valid @RequestBody ProductCreateReqVO createReqVO) {
+        return success(productService.createProduct(createReqVO));
+    }
+    
+    /**
+     * 更新产品
+     * 
+     * @param updateReqVO 更新产品请求参数
+     * @return 操作结果
+     */
+    @PutMapping("/update")
+    @PreAuthorize("@ss.hasPermission('erp:product:update')")
+    public CommonResult<Boolean> updateProduct(@Valid @RequestBody ProductUpdateReqVO updateReqVO) {
+        productService.updateProduct(updateReqVO);
+        return success(true);
+    }
+    
+    /**
+     * 删除产品
+     * 
+     * @param id 产品编号
+     * @return 操作结果
+     */
+    @DeleteMapping("/delete")
+    @PreAuthorize("@ss.hasPermission('erp:product:delete')")
+    public CommonResult<Boolean> deleteProduct(@RequestParam("id") Long id) {
+        productService.deleteProduct(id);
+        return success(true);
+    }
+    
+    /**
+     * 获取产品
+     * 
+     * @param id 产品编号
+     * @return 产品信息
+     */
+    @GetMapping("/get")
+    @PreAuthorize("@ss.hasPermission('erp:product:query')")
+    public CommonResult<ProductRespVO> getProduct(@RequestParam("id") Long id) {
+        ProductDO product = productService.getProduct(id);
+        return success(ProductConvert.INSTANCE.convert(product));
+    }
+    
+    /**
+     * 获取产品分页
+     * 
+     * @param pageReqVO 分页请求参数
+     * @return 产品分页结果
+     */
+    @GetMapping("/page")
+    @PreAuthorize("@ss.hasPermission('erp:product:query')")
+    public CommonResult<PageResult<ProductRespVO>> getProductPage(@Valid ProductPageReqVO pageReqVO) {
+        // 获取产品分页数据
+        PageResult<ProductDO> pageResult = productService.getProductPage(pageReqVO);
+        // 转换为响应对象
+        return success(ProductConvert.INSTANCE.convertPage(pageResult));
+    }
+}
+```
+
+## 前端开发规范
+ERP 模块的前端开发应遵循以下规范：
+
+1. **目录结构**: 按业务模块组织目录结构
+2. **API 封装**: 将 API 请求封装为独立的文件
+3. **组件复用**: 提取公共组件，提高代码复用性
+4. **类型定义**: 使用 TypeScript 类型定义，提高代码可读性和可维护性
+
+```
+yudao-ui-admin-vue3/
+└── src/
+    ├── api/
+    │   └── erp/
+    │       ├── product.ts      # 产品相关 API
+    │       ├── purchase.ts     # 采购相关 API
+    │       └── sale.ts         # 销售相关 API
+    ├── types/
+    │   └── erp/
+    │       ├── product.ts      # 产品相关类型
+    │       ├── purchase.ts     # 采购相关类型
+    │       └── sale.ts         # 销售相关类型
+    └── views/
+        └── erp/
+            ├── product/        # 产品管理
+            ├── purchase/       # 采购管理
+            └── sale/           # 销售管理
+```
+
+## 测试规范
+ERP 模块的测试应遵循以下规范：
+
+1. **单元测试**: 使用 JUnit 5 和 Mockito 进行单元测试
+2. **集成测试**: 使用 Spring Boot Test 进行集成测试
+3. **测试覆盖率**: 核心业务逻辑的测试覆盖率应达到 80% 以上
+
+```java
+/**
+ * 产品 Service 单元测试
+ * 
+ * @author 作者名
+ */
+@ExtendWith(MockitoExtension.class)
+public class ProductServiceImplTest {
+    /**
+     * 被测试对象
+     */
+    private ProductServiceImpl productService;
+    
+    /**
+     * Mock 对象
+     */
+    @Mock
+    private ProductMapper productMapper;
+    
+    @Mock
+    private CategoryService categoryService;
+    
+    /**
+     * 测试前准备
+     */
+    @BeforeEach
+    public void setUp() {
+        // 创建被测试对象
+        productService = new ProductServiceImpl(productMapper, categoryService);
+    }
+    
+    /**
+     * 测试创建产品成功场景
+     * 验证当提供有效参数时，产品创建是否成功
+     */
+    @Test
+    public void testCreateProduct_Success() {
+        // 准备参数
+        ProductCreateReqVO reqVO = randomPojo(ProductCreateReqVO.class);
+        
+        // Mock 行为
+        // 模拟分类存在
+        doNothing().when(categoryService).validateCategoryExists(eq(reqVO.getCategoryId()));
+        // 模拟产品名称不重复
+        when(productMapper.selectByName(eq(reqVO.getName()))).thenReturn(null);
+        
+        // 调用
+        Long productId = productService.createProduct(reqVO);
+        
+        // 断言
+        assertNotNull(productId);
+        // 验证调用参数
+        ArgumentCaptor<ProductDO> productCaptor = ArgumentCaptor.forClass(ProductDO.class);
+        verify(productMapper).insert(productCaptor.capture());
+        ProductDO product = productCaptor.getValue();
+        assertEquals(reqVO.getName(), product.getName());
+        assertEquals(reqVO.getPrice(), product.getPrice());
+        assertEquals(reqVO.getCategoryId(), product.getCategoryId());
+        assertEquals(reqVO.getDescription(), product.getDescription());
+        assertEquals(CommonStatusEnum.ENABLE.getStatus(), product.getStatus());
+    }
+}
+```
+
+## 文档规范
+ERP 模块的文档应遵循以下规范：
+
+1. **接口文档**: 使用 Swagger 注解生成接口文档
+2. **代码注释**: 使用 Javadoc 注释说明代码功能和实现原因
+3. **README**: 提供模块的概述、功能列表、使用说明等
+
+```java
+/**
+ * 产品 Controller
+ * 
+ * @author 作者名
+ */
+@Tag(name = "管理后台 - 产品管理")
+@RestController
+@RequestMapping("/erp/product")
+@Validated
+public class ProductController {
+    
+    /**
+     * 创建产品
+     * 
+     * @param createReqVO 创建产品请求参数
+     * @return 产品编号
+     */
+    @PostMapping("/create")
+    @Operation(summary = "创建产品")
+    @PreAuthorize("@ss.hasPermission('erp:product:create')")
+    public CommonResult<Long> createProduct(@Valid @RequestBody ProductCreateReqVO createReqVO) {
+        return success(productService.createProduct(createReqVO));
+    }
+}
+```
+
+## 最佳实践
+1. **业务规则**: 业务规则应该在 Service 层实现，而不是在 Controller 层
+2. **数据校验**: 使用 Bean Validation 进行参数校验，在 Controller 层进行
+3. **异常处理**: 使用全局异常处理器处理异常，避免在各处重复处理
+4. **日志记录**: 使用 SLF4J 记录关键业务操作和异常信息
+5. **事务管理**: 合理使用事务，确保数据一致性
+6. **缓存使用**: 对于频繁访问的数据，使用缓存提高性能
+7. **安全控制**: 使用 Spring Security 进行权限控制
+8. **代码复用**: 提取公共代码，避免重复实现
