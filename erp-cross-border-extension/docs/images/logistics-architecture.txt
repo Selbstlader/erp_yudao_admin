@@ -1,0 +1,39 @@
++-------------------------------------+
+|  International Logistics & Warehouse |
++-------------------------------------+
+                 |
+       +---------+---------+---------+
+       |         |         |         |
++------v------+ +-v-------+ +-------v---+ +--------v----+
+| Warehouse   | | Logistics| | Logistics | | Logistics  |
+| Service     | | Provider | | Fee Rule  | | Tracking   |
+|             | | Service  | | Service   | | Service    |
++------+------+ +----+-----+ +-----+-----+ +-----+------+
+       |            |             |             |
+       |            |             |             |
++------v------------v-------------v-------------v------+
+|                                                     |
+|            Message Queue (RabbitMQ)                 |
+|                                                     |
++---------------------+-----------------------------+-+
+                      |                             |
+          +-----------v-----------+       +---------v---------+
+          |                       |       |                   |
+          | Database (MySQL)      |       | External API      |
+          |                       |       | Integration       |
+          | - Warehouse Table     |       | - Logistics       |
+          | - Int'l Warehouse     |       |   Provider APIs   |
+          | - Logistics Provider  |       | - Tracking APIs   |
+          | - Logistics Method    |       | - Customs Data    |
+          | - Logistics Fee Rule  |       |                   |
+          | - Logistics Tracking  |       |                   |
+          |                       |       |                   |
+          +-----------------------+       +-------------------+
+                      |
+          +-----------v-----------+
+          |                       |
+          | Integration with      |
+          | Existing Inventory    |
+          | Management System     |
+          |                       |
+          +-----------------------+ 

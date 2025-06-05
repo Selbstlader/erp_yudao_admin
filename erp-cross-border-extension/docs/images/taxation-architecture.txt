@@ -1,0 +1,38 @@
++-------------------------------------+
+|       Tax Management Module          |
++-------------------------------------+
+                 |
+       +---------+---------+---------+
+       |         |         |         |
++------v------+ +-v-------+ +-------v---+ +--------v----+
+| Tax Type    | | Tax Rate | | Product   | | Tax Report |
+| Service     | | Service  | | Tax       | | Service    |
+|             | |          | | Service   | |            |
++------+------+ +----+-----+ +-----+-----+ +-----+------+
+       |            |             |             |
+       |            |             |             |
++------v------------v-------------v-------------v------+
+|                                                     |
+|            Rule Engine (Drools)                     |
+|                                                     |
++---------------------+-----------------------------+-+
+                      |                             |
+          +-----------v-----------+       +---------v---------+
+          |                       |       |                   |
+          | Database (MySQL)      |       | External API      |
+          |                       |       | Integration       |
+          | - Tax Type Table      |       | - Tax Rate APIs   |
+          | - Country Tax Rate    |       | - VAT Validation  |
+          | - Product Tax Category|       | - Tax Reporting   |
+          | - Product Tax         |       |                   |
+          | - VAT Registration    |       |                   |
+          |                       |       |                   |
+          +-----------+-----------+       +-------------------+
+                      |
+          +-----------v-----------+
+          |                       |
+          | Integration with      |
+          | Order Management      |
+          | & Invoicing Systems   |
+          |                       |
+          +-----------------------+ 

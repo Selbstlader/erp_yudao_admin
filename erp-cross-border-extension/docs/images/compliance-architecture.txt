@@ -1,0 +1,47 @@
++-------------------------------------+
+|    Compliance & Certification Module  |
++-------------------------------------+
+                 |
+       +---------+---------+---------+
+       |         |         |         |
++------v------+ +-v-------+ +-------v---+
+| Certification| | HS Code | | Compliance|
+| Service     | | Service  | | Check     |
+|             | |          | | Service   |
++------+------+ +----+-----+ +-----+-----+
+       |            |             |
+       |            |             |
++------v------------v-------------v------+
+|                                        |
+|         Cache Layer (Redis)            |
+|                                        |
++----------------+---------------------+-+
+                 |                     |
+     +-----------v-----------+  +------v--------------+
+     |                       |  |                     |
+     | Database (MySQL)      |  | Document Storage    |
+     |                       |  | (MinIO)             |
+     | - Certification Type  |  |                     |
+     | - Product Certification|  | - Certificate Files|
+     | - HS Code             |  | - Compliance Docs   |
+     | - Product Customs     |  |                     |
+     |                       |  |                     |
+     +-----------+-----------+  +---------------------+
+                 |
+                 |
+     +-----------v-----------+
+     |                       |
+     | Search Engine         |
+     | (Elasticsearch)       |
+     |                       |
+     | - HS Code Search      |
+     | - Compliance Rules    |
+     |                       |
+     +-----------+-----------+
+                 |
+     +-----------v-----------+
+     |                       |
+     | Integration with      |
+     | Product Management    |
+     |                       |
+     +-----------------------+ 

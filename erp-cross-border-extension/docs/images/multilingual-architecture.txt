@@ -1,0 +1,30 @@
++-------------------------------------+
+|     Multilingual & Currency Module   |
++-------------------------------------+
+                 |
+       +---------+---------+---------+
+       |         |         |         |
++------v------+ +-v-------+ +-------v---+ +--------v----+
+| Multilingual| | Currency | | Market    | | Product    |
+| Service     | | Service  | | Service   | | Price      |
+|             | |          | |           | | Service    |
++------+------+ +----+-----+ +-----+-----+ +-----+------+
+       |            |             |             |
+       |            |             |             |
++------v------------v-------------v-------------v------+
+|                                                     |
+|                  Cache Layer (Redis)                |
+|                                                     |
++---------------------+-----------------------------+-+
+                      |                             |
+          +-----------v-----------+       +---------v---------+
+          |                       |       |                   |
+          | Database (MySQL)      |       | External API      |
+          |                       |       | Integration       |
+          | - Product I18n Table  |       | - Currency Rates  |
+          | - Currency Table      |       | - Market Data     |
+          | - Exchange Rate Table |       |                   |
+          | - Market Table        |       |                   |
+          | - Product Price Table |       |                   |
+          |                       |       |                   |
+          +-----------------------+       +-------------------+ 
