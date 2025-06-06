@@ -165,4 +165,19 @@ ErrorCode PURCHASE_ORDER_ITEM_RETURN_FAIL_IN_EXCEED = new ErrorCode(1_030_101_00
     ErrorCode FINANCE_RECEIPT_NO_EXISTS = new ErrorCode(1_030_602_004, "生成收款单号失败，请重新提交");
     ErrorCode FINANCE_RECEIPT_UPDATE_FAIL_APPROVE = new ErrorCode(1_030_602_005, "收款单({})已审核，无法修改");
 
+    // ========== ERP 多语言 1-030-700-000 ==========
+    ErrorCode LANGUAGE_NOT_EXISTS = new ErrorCode(1_030_700_000, "多语言不存在");
+    ErrorCode LANGUAGE_CODE_DUPLICATE = new ErrorCode(1_030_700_001, "已存在该代码({})的多语言");
+    ErrorCode LANGUAGE_DEFAULT_CANNOT_DELETE = new ErrorCode(1_030_700_002, "默认语言不能删除");
+
+    // ========== ERP 多币种 1-030-701-000 ==========
+    ErrorCode CURRENCY_NOT_EXISTS = new ErrorCode(1_030_701_000, "多币种不存在");
+    ErrorCode CURRENCY_CODE_DUPLICATE = new ErrorCode(1_030_701_001, "已存在该代码({})的多币种");
+    ErrorCode CURRENCY_BASE_CANNOT_DELETE = new ErrorCode(1_030_701_002, "基础币种不能删除");
+
+    // ========== ERP 汇率 1-030-702-000 ==========
+    ErrorCode EXCHANGE_RATE_NOT_EXISTS = new ErrorCode(1_030_702_000, "汇率不存在");
+    ErrorCode EXCHANGE_RATE_DUPLICATE = new ErrorCode(1_030_702_001, "已存在相同币种对({}->{})在该日期({})的汇率");
+    ErrorCode EXCHANGE_RATE_SAME_CURRENCY = new ErrorCode(1_030_702_002, "源币种和目标币种不能相同");
+
 }
