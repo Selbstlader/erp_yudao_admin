@@ -202,7 +202,9 @@ public class ErpExchangeRateServiceImpl implements ErpExchangeRateService {
             currencyIds.add(exchangeRate.getFromCurrencyId());
             currencyIds.add(exchangeRate.getToCurrencyId());
         });
-        Map<Long, ErpCurrencyDO> currencyMap = convertMap(currencyService.validCurrencyList(currencyIds), ErpCurrencyDO::getId);
+        
+        // 使用不校验的方式获取币种列表
+        Map<Long, ErpCurrencyDO> currencyMap = convertMap(currencyService.getCurrencyDOList(currencyIds), ErpCurrencyDO::getId);
         
         // 构建VO
         return BeanUtils.toBean(list, ErpExchangeRateRespVO.class, vo -> {

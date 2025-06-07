@@ -132,15 +132,6 @@ public class ErpCurrencyServiceImpl implements ErpCurrencyService {
     }
 
     @Override
-    public List<ErpCurrencyRespVO> getCurrencyList(Collection<Long> ids) {
-        if (CollUtil.isEmpty(ids)) {
-            return Collections.emptyList();
-        }
-        List<ErpCurrencyDO> list = currencyMapper.selectBatchIds(ids);
-        return BeanUtils.toBean(list, ErpCurrencyRespVO.class);
-    }
-
-    @Override
     public List<ErpCurrencyDO> validCurrencyList(Collection<Long> ids) {
         if (CollUtil.isEmpty(ids)) {
             return Collections.emptyList();
@@ -152,6 +143,20 @@ public class ErpCurrencyServiceImpl implements ErpCurrencyService {
         return list;
     }
 
+    /**
+     * 获取币种列表，与validCurrencyList不同，不校验所有ID是否存在
+     *
+     * @param ids 编号数组
+     * @return 存在的币种列表
+     */
+    @Override
+    public List<ErpCurrencyDO> getCurrencyDOList(Collection<Long> ids) {
+        if (CollUtil.isEmpty(ids)) {
+            return Collections.emptyList();
+        }
+        return currencyMapper.selectBatchIds(ids);
+    }
+
     @Override
     public ErpCurrencyDO getCurrencyByCode(String code) {
         return currencyMapper.selectByCode(code);
@@ -160,6 +165,12 @@ public class ErpCurrencyServiceImpl implements ErpCurrencyService {
     @Override
     public ErpCurrencyDO getBaseCurrency() {
         return currencyMapper.selectBaseCurrency();
+    }
+
+    @Override
+    public List<ErpCurrencyRespVO> getCurrencyList(Collection<Long> ids) {
+        List<ErpCurrencyDO> list = getCurrencyDOList(ids);
+        return BeanUtils.toBean(list, ErpCurrencyRespVO.class);
     }
 
     @Override

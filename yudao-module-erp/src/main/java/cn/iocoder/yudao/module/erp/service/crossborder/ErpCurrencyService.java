@@ -73,12 +73,20 @@ public interface ErpCurrencyService {
     List<ErpCurrencyRespVO> getCurrencyList(Collection<Long> ids);
 
     /**
-     * 校验多币种们的有效性
+     * 校验币种们的有效性
      *
      * @param ids 编号数组
-     * @return 多币种列表
+     * @return 币种列表
      */
     List<ErpCurrencyDO> validCurrencyList(Collection<Long> ids);
+
+    /**
+     * 获取币种列表，与validCurrencyList不同，不校验所有ID是否存在
+     *
+     * @param ids 编号数组
+     * @return 存在的币种列表
+     */
+    List<ErpCurrencyDO> getCurrencyDOList(Collection<Long> ids);
 
     /**
      * 根据币种代码获得多币种
