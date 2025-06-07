@@ -23,7 +23,7 @@ public interface ErrorCodeConstants {
     ErrorCode PURCHASE_ORDER_NOT_APPROVE = new ErrorCode(1_030_101_006, "采购订单未审核，无法操作");
     ErrorCode PURCHASE_ORDER_ITEM_IN_FAIL_PRODUCT_EXCEED = new ErrorCode(1_030_101_007, "采购订单项({})超过最大允许入库数量({})");
     ErrorCode PURCHASE_ORDER_PROCESS_FAIL_EXISTS_IN = new ErrorCode(1_030_101_008, "反审核失败，已存在对应的采购入库单");
-ErrorCode PURCHASE_ORDER_ITEM_RETURN_FAIL_IN_EXCEED = new ErrorCode(1_030_101_009, "采购订单项({})超过最大允许退货数量({})");
+    ErrorCode PURCHASE_ORDER_ITEM_RETURN_FAIL_IN_EXCEED = new ErrorCode(1_030_101_009, "采购订单项({})超过最大允许退货数量({})");
     ErrorCode PURCHASE_ORDER_PROCESS_FAIL_EXISTS_RETURN = new ErrorCode(1_030_101_010, "反审核失败，已存在对应的采购退货单");
 
     // ========== ERP 采购入库（1-030-102-000） ==========
@@ -179,5 +179,19 @@ ErrorCode PURCHASE_ORDER_ITEM_RETURN_FAIL_IN_EXCEED = new ErrorCode(1_030_101_00
     ErrorCode EXCHANGE_RATE_NOT_EXISTS = new ErrorCode(1_030_702_000, "汇率不存在");
     ErrorCode EXCHANGE_RATE_DUPLICATE = new ErrorCode(1_030_702_001, "已存在相同币种对({}->{})在该日期({})的汇率");
     ErrorCode EXCHANGE_RATE_SAME_CURRENCY = new ErrorCode(1_030_702_002, "源币种和目标币种不能相同");
+
+    // ========== 国际仓库 1-010-001-000 ==========
+    ErrorCode ERP_WAREHOUSE_INTERNATIONAL_NOT_EXISTS = new ErrorCode(1_010_001_000, "国际仓库不存在");
+    
+    // ========== 物流服务商 1-010-002-000 ==========
+    ErrorCode ERP_LOGISTICS_PROVIDER_NOT_EXISTS = new ErrorCode(1_010_002_000, "物流服务商不存在");
+    ErrorCode ERP_LOGISTICS_PROVIDER_CODE_DUPLICATE = new ErrorCode(1_010_002_001, "物流服务商编码已存在");
+    
+    // ========== 物流方式 1-010-003-000 ==========
+    ErrorCode ERP_LOGISTICS_METHOD_NOT_EXISTS = new ErrorCode(1_010_003_000, "物流方式不存在");
+    ErrorCode ERP_LOGISTICS_METHOD_CODE_DUPLICATE = new ErrorCode(1_010_003_001, "物流方式编码已存在");
+    
+    // ========== 物流费用规则 1-010-004-000 ==========
+    ErrorCode ERP_LOGISTICS_FEE_RULE_NOT_EXISTS = new ErrorCode(1_010_004_000, "物流费用规则不存在");
 
 }
