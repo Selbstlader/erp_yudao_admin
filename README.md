@@ -16,7 +16,6 @@
 
 ### 前端结构
 - @yudao-ui/yudao-ui-admin-vue3/: Vue 3 + TypeScript 前端项目
-
 ### 其他重要目录
 - @sql/: 数据库脚本
 - @script/: 部署和维护脚本
