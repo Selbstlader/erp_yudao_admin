@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.iocoder.yudao.module.infra.dal.mysql.file.FileDifyMapper">
+
+    <sql id="Base_Column_List">
+        id, file_id, dify_document_id, dataset_id, sync_status, batch_id,
+        sync_time, retry_count, error_message, error_code, next_retry_time,
+        creator, create_time, updater, update_time, deleted, tenant_id
+    </sql>
+
+    <select id="selectListByStatus" resultType="cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDifyDO">
+        SELECT
+            <include refid="Base_Column_List"/>
+        FROM
+            infra_file_dify
+        WHERE
+            deleted = 0
+            AND sync_status = #{syncStatus}
+            AND tenant_id = ${@cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder@getTenantId()}
+    </select>
+
+    <select id="selectListByDatasetId" resultType="cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDifyDO">
+        SELECT
+            <include refid="Base_Column_List"/>
+        FROM
+            infra_file_dify
+        WHERE
+            deleted = 0
+            AND dataset_id = #{datasetId}
+            AND tenant_id = ${@cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder@getTenantId()}
+    </select>
+    
+</mapper> 

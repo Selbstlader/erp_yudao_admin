@@ -1,7 +1,13 @@
 package cn.iocoder.yudao.framework.tenant.core.util;
 
+import cn.iocoder.yudao.framework.tenant.config.TenantProperties;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
@@ -12,7 +18,32 @@ import static cn.iocoder.yudao.framework.web.core.util.WebFrameworkUtils.HEADER_
  *
  * @author 芋道源码
  */
+@Component
 public class TenantUtils {
+
+    private static TenantProperties tenantProperties;
+
+    @Autowired
+    public void setTenantProperties(TenantProperties properties) {
+        TenantUtils.tenantProperties = properties;
+    }
+
+    /**
+     * 获取所有租户ID
+     * 
+     * @return 所有租户ID列表
+     */
+    public static List<Long> getTenantIds() {
+        // 如果禁用，则返回空集合
+        if (!tenantProperties.getEnable()) {
+            return Collections.emptyList();
+        }
+        
+        // 默认返回系统租户
+        List<Long> tenantIds = new ArrayList<>();
+        tenantIds.add(TenantContextHolder.getRequiredTenantId());
+        return tenantIds;
+    }
 
     /**
      * 使用指定租户，执行对应的逻辑

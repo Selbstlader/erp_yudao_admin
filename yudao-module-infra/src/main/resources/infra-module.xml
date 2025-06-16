@@ -1,0 +1,25 @@
+<!-- 提供给 Dubbo 暴露服务 -->
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:dubbo="http://code.alibabatech.com/schema/dubbo"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://code.alibabatech.com/schema/dubbo
+       http://code.alibabatech.com/schema/dubbo/dubbo.xsd">
+
+    <!-- 使用 dubbo 协议实现注册中心，打开注释即可
+    <dubbo:registry address="N/A"/>
+    <dubbo:protocol name="dubbo" port="20880" />
+    <dubbo:annotation package="cn.iocoder.yudao.module.infra.api.impl" />
+     -->
+
+    <!-- 扫描的包，可以引入 Dubbo 主春中的类和实例来协作 -->
+    <bean class="org.springframework.context.annotation.CommonAnnotationBeanPostProcessor" />
+
+    <!-- ====== Dify Configuration Start ====== -->
+    <bean class="org.springframework.boot.context.properties.ConfigurationPropertiesBindingPostProcessor"/>
+    <bean id="difyProperties" class="cn.iocoder.yudao.module.infra.framework.dify.config.DifyProperties"/>
+    <import resource="classpath:spring/dify-config.xml"/>
+    <!-- ====== Dify Configuration End ====== -->
+
+</beans> 

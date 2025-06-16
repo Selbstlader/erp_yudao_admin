@@ -12,12 +12,14 @@ import cn.iocoder.yudao.module.infra.controller.admin.file.vo.file.FilePageReqVO
 import cn.iocoder.yudao.module.infra.controller.admin.file.vo.file.FilePresignedUrlRespVO;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
+import cn.iocoder.yudao.module.infra.framework.dify.config.DifyProperties;
 import cn.iocoder.yudao.module.infra.framework.file.core.client.FileClient;
 import cn.iocoder.yudao.module.infra.framework.file.core.client.s3.FilePresignedUrlRespDTO;
 import cn.iocoder.yudao.module.infra.framework.file.core.utils.FileTypeUtils;
 import com.google.common.annotations.VisibleForTesting;
 import jakarta.annotation.Resource;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import static cn.hutool.core.date.DatePattern.PURE_DATE_PATTERN;
@@ -30,6 +32,7 @@ import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_NOT_EX
  * @author 芋道源码
  */
 @Service
+@Slf4j
 public class FileServiceImpl implements FileService {
 
     /**
@@ -51,6 +54,12 @@ public class FileServiceImpl implements FileService {
 
     @Resource
     private FileMapper fileMapper;
+    
+    @Resource
+    private FileDifyService fileDifyService;
+    
+    @Resource
+    private DifyProperties difyProperties;
 
     @Override
     public PageResult<FileDO> getFilePage(FilePageReqVO pageReqVO) {
@@ -84,9 +93,22 @@ public class FileServiceImpl implements FileService {
         String url = client.upload(content, path, type);
 
         // 3. 保存到数据库
-        fileMapper.insert(new FileDO().setConfigId(client.getId())
+        FileDO fileDO = new FileDO().setConfigId(client.getId())
                 .setName(name).setPath(path).setUrl(url)
-                .setType(type).setSize(content.length));
+                .setType(type).setSize(content.length);
+        fileMapper.insert(fileDO);
+        
+        // 4. 自动触发Dify知识库同步
+        if (difyProperties.getEnabled() && difyProperties.getAutoSync()) {
+            try {
+                fileDifyService.asyncSyncFile(fileDO.getId(), null);
+                log.info("[createFile][自动同步文件({})到Dify知识库]", fileDO.getId());
+            } catch (Exception e) {
+                // 同步失败不影响文件上传
+                log.error("[createFile][自动同步文件({})到Dify知识库失败]", fileDO.getId(), e);
+            }
+        }
+        
         return url;
     }
 
@@ -139,6 +161,18 @@ public class FileServiceImpl implements FileService {
     public Long createFile(FileCreateReqVO createReqVO) {
         FileDO file = BeanUtils.toBean(createReqVO, FileDO.class);
         fileMapper.insert(file);
+        
+        // 自动触发Dify知识库同步 - 适用于前端上传模式
+        if (difyProperties.getEnabled() && difyProperties.getAutoSync()) {
+            try {
+                fileDifyService.asyncSyncFile(file.getId(), null);
+                log.info("[createFile][自动同步文件({})到Dify知识库]", file.getId());
+            } catch (Exception e) {
+                // 同步失败不影响文件创建
+                log.error("[createFile][自动同步文件({})到Dify知识库失败]", file.getId(), e);
+            }
+        }
+        
         return file.getId();
     }
 
@@ -146,6 +180,17 @@ public class FileServiceImpl implements FileService {
     public void deleteFile(Long id) throws Exception {
         // 校验存在
         FileDO file = validateFileExists(id);
+        
+        // 从Dify知识库删除文件
+        if (difyProperties.getEnabled() && difyProperties.getAutoSync()) {
+            try {
+                fileDifyService.deleteFileSync(id);
+                log.info("[deleteFile][自动从Dify知识库删除文件({})]", id);
+            } catch (Exception e) {
+                // 删除失败不影响文件删除
+                log.error("[deleteFile][自动从Dify知识库删除文件({})失败]", id, e);
+            }
+        }
 
         // 从文件存储器中删除
         FileClient client = fileConfigService.getFileClient(file.getConfigId());
@@ -170,5 +215,4 @@ public class FileServiceImpl implements FileService {
         Assert.notNull(client, "客户端({}) 不能为空", configId);
         return client.getContent(path);
     }
-
 }

@@ -56,6 +56,12 @@ public interface ErrorCodeConstants {
     ErrorCode DATA_SOURCE_CONFIG_NOT_EXISTS = new ErrorCode(1_001_007_000, "数据源配置不存在");
     ErrorCode DATA_SOURCE_CONFIG_NOT_OK = new ErrorCode(1_001_007_001, "数据源配置不正确，无法进行连接");
 
+    // ========== Dify知识库集成相关 1-001-008-000 ==========
+    ErrorCode DIFY_API_CALL_FAILED = new ErrorCode(1_001_008_000, "Dify API调用失败");
+    ErrorCode DIFY_DEFAULT_DATASET_NOT_CONFIG = new ErrorCode(1_001_008_001, "未配置默认知识库，请指定知识库ID");
+    ErrorCode DIFY_DATASET_NOT_FOUND = new ErrorCode(1_001_008_002, "知识库不存在");
+    ErrorCode DIFY_DOCUMENT_NOT_FOUND = new ErrorCode(1_001_008_003, "文档不存在");
+
     // ========== 学生 1-001-201-000 ==========
     ErrorCode DEMO01_CONTACT_NOT_EXISTS = new ErrorCode(1_001_201_000, "示例联系人不存在");
     ErrorCode DEMO02_CATEGORY_NOT_EXISTS = new ErrorCode(1_001_201_001, "示例分类不存在");
