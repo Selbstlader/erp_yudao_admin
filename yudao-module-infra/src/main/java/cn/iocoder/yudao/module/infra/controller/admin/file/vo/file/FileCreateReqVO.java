@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.infra.controller.admin.file.vo.file;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
 
 @Schema(description = "管理后台 - 文件创建 Request VO")
 @Data
@@ -30,4 +31,12 @@ public class FileCreateReqVO {
     @Schema(description = "文件大小", example = "2048", requiredMode = Schema.RequiredMode.REQUIRED)
     private Integer size;
 
+    @Schema(description = "是否同步到Dify知识库", example = "true")
+    private Boolean syncDify;
+
+    @Schema(description = "目标知识库ID，不指定则使用默认知识库ID", example = "dataset-123456")
+    private String difyDatasetId;
+    
+    @Schema(description = "文件", requiredMode = Schema.RequiredMode.REQUIRED)
+    private MultipartFile file;
 }

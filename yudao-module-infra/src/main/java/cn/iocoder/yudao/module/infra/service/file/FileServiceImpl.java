@@ -21,6 +21,7 @@ import jakarta.annotation.Resource;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import static cn.hutool.core.date.DatePattern.PURE_DATE_PATTERN;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -158,6 +159,7 @@ public class FileServiceImpl implements FileService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createFile(FileCreateReqVO createReqVO) {
         FileDO file = BeanUtils.toBean(createReqVO, FileDO.class);
         fileMapper.insert(file);
@@ -172,7 +174,16 @@ public class FileServiceImpl implements FileService {
                 log.error("[createFile][自动同步文件({})到Dify知识库失败]", file.getId(), e);
             }
         }
-        
+
+        // 如果配置了Dify，并且需要同步，则创建同步记录
+        if (difyProperties.isEnabled() && Boolean.TRUE.equals(createReqVO.getSyncDify())) {
+            // 如果指定了知识库ID，则使用指定的知识库ID，否则使用默认知识库ID
+            String datasetId = createReqVO.getDifyDatasetId() != null ? 
+                    createReqVO.getDifyDatasetId() : difyProperties.getDefaultDatasetId();
+            fileDifyService.createSyncRecord(file.getId(), datasetId);
+        }
+
+        // 返回
         return file.getId();
     }
 
@@ -211,8 +222,15 @@ public class FileServiceImpl implements FileService {
 
     @Override
     public byte[] getFileContent(Long configId, String path) throws Exception {
+        // 获得客户端
         FileClient client = fileConfigService.getFileClient(configId);
         Assert.notNull(client, "客户端({}) 不能为空", configId);
+        // 读取内容
         return client.getContent(path);
+    }
+
+    @Override
+    public FileDO getFile(Long id) {
+        return fileMapper.selectById(id);
     }
 }

@@ -57,7 +57,7 @@ public class FileDifyDO extends TenantBaseDO {
     private String errorCode;
     
     /**
-     * 知识库ID
+     * 知识库ID (由用户指定的目标知识库ID)
      */
     private String datasetId;
     

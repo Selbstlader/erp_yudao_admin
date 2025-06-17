@@ -43,6 +43,14 @@ public class DifyProperties {
     private Boolean enabled = true;
 
     /**
+     * 返回是否启用
+     * @return 是否启用
+     */
+    public boolean isEnabled() {
+        return Boolean.TRUE.equals(enabled);
+    }
+
+    /**
      * 索引技术（high_quality/economy）
      */
     private String indexingTechnique = "high_quality";

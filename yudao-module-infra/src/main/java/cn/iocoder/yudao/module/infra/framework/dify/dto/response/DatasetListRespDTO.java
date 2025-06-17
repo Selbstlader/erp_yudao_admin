@@ -11,38 +11,27 @@ import java.util.List;
 public class DatasetListRespDTO {
 
     /**
-     * 分页数据
-     */
-    private PageData pageData;
-    
-    /**
      * 知识库列表
      */
     private List<DatasetRespDTO> data;
     
     /**
-     * 分页数据
+     * 是否有更多数据
      */
-    @Data
-    public static class PageData {
-        /**
-         * 页码
-         */
-        private Integer page;
-        
-        /**
-         * 每页条数
-         */
-        private Integer limit;
-        
-        /**
-         * 总条数
-         */
-        private Integer total;
-        
-        /**
-         * 总页数
-         */
-        private Integer totalPages;
-    }
+    private Boolean has_more;
+    
+    /**
+     * 每页限制
+     */
+    private Integer limit;
+    
+    /**
+     * 总条数
+     */
+    private Integer total;
+    
+    /**
+     * 当前页码
+     */
+    private Integer page;
 } 

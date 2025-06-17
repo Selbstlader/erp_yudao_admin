@@ -21,6 +21,7 @@ import cn.iocoder.yudao.module.infra.framework.dify.dto.request.DifyCreateDatase
 import cn.iocoder.yudao.module.infra.framework.dify.dto.request.DocumentFileReqDTO;
 import cn.iocoder.yudao.module.infra.framework.dify.dto.response.DocumentRespDTO;
 import cn.iocoder.yudao.module.infra.framework.dify.dto.response.IndexingStatusRespDTO;
+import cn.iocoder.yudao.module.infra.framework.dify.dto.response.DatasetListRespDTO;
 import cn.iocoder.yudao.module.infra.framework.dify.core.enums.DifySyncStatusEnum;
 import cn.iocoder.yudao.module.infra.framework.dify.exception.DifyApiException;
 import jakarta.annotation.Resource;
@@ -641,7 +642,9 @@ public class FileDifyServiceImpl implements FileDifyService {
             
             // 创建元数据
             Map<String, Object> metadata = createFileMetadata(file);
-            DocumentFileReqDTO fileReqDTO = new DocumentFileReqDTO(difyProperties.getIndexingTechnique(), metadata);
+            
+            // 创建文档请求对象，使用createDefault方法
+            DocumentFileReqDTO fileReqDTO = DocumentFileReqDTO.createDefault(difyProperties.getIndexingTechnique(), metadata);
             
             // 调用Dify API创建文档
             return difyClient.createDocumentByFile(datasetId, localFile, fileReqDTO);
@@ -685,7 +688,9 @@ public class FileDifyServiceImpl implements FileDifyService {
             
             // 创建元数据
             Map<String, Object> metadata = createFileMetadata(file);
-            DocumentFileReqDTO fileReqDTO = new DocumentFileReqDTO(difyProperties.getIndexingTechnique(), metadata);
+            
+            // 创建文档请求对象，使用createDefault方法
+            DocumentFileReqDTO fileReqDTO = DocumentFileReqDTO.createDefault(difyProperties.getIndexingTechnique(), metadata);
             
             // 调用Dify API更新文档
             return difyClient.updateDocumentByFile(datasetId, documentId, localFile, fileReqDTO);
@@ -808,7 +813,7 @@ public class FileDifyServiceImpl implements FileDifyService {
         FileDifyDO fileDifyDO = new FileDifyDO();
         fileDifyDO.setFileId(fileId);
         fileDifyDO.setSyncStatus(DifySyncStatusEnum.SYNC_FAILED.getStatus());
-        fileDifyDO.setErrorMessage("自动创建默认知识库失败: 请配置有效的应用程序级别API密钥(app-*)和数据集ID");
+        fileDifyDO.setErrorMessage("自动创建默认知识库失败: 请配置有效的API密钥和数据集ID");
         fileDifyDO.setErrorCode("default_dataset_creation_failed");
         fileDifyDO.setDatasetId("pending_creation");  // 标记为等待创建
         fileDifyDO.setRetryCount(0);
@@ -862,12 +867,6 @@ public class FileDifyServiceImpl implements FileDifyService {
                 if (!pendingRecords.isEmpty()) {
                     log.info("[processSyncRecords][租户({})发现{}条等待知识库创建的记录，但未配置默认知识库]", 
                             tenantId, pendingRecords.size());
-                    
-                    // 检查API密钥类型，如果是dataset密钥，则无法创建知识库
-                    if (StrUtil.startWithIgnoreCase(difyProperties.getApiKey(), "dataset-")) {
-                        log.warn("[processSyncRecords][租户({})无法创建知识库：API密钥类型为dataset-，需要app-类型密钥]", tenantId);
-                        return;
-                    }
                     
                     try {
                         String defaultDatasetName = "Default_" + RandomUtil.randomString(8);
@@ -939,5 +938,41 @@ public class FileDifyServiceImpl implements FileDifyService {
         } catch (Exception e) {
             log.error("[processSyncRecords][租户({})处理同步记录异常]", tenantId, e);
         }
+    }
+
+    /**
+     * 创建文件同步记录
+     *
+     * @param fileId 文件ID
+     * @return 同步记录ID
+     */
+    @Override
+    public Long createSyncRecord(Long fileId) {
+        return createSyncRecord(fileId, difyProperties.getDefaultDatasetId());
+    }
+
+    /**
+     * 创建文件同步记录，使用指定的知识库ID
+     *
+     * @param fileId 文件ID
+     * @param datasetId 知识库ID
+     * @return 同步记录ID
+     */
+    @Override
+    public Long createSyncRecord(Long fileId, String datasetId) {
+        FileDO file = fileService.getFile(fileId);
+        if (file == null) {
+            throw ServiceExceptionUtil.exception(FILE_NOT_EXISTS);
+        }
+
+        // 创建同步记录
+        FileDifyDO fileDifyDO = new FileDifyDO();
+        fileDifyDO.setFileId(fileId);
+        fileDifyDO.setDatasetId(datasetId);
+        fileDifyDO.setSyncStatus(DifySyncStatusEnum.TO_SYNC.getStatus());
+        fileDifyDO.setRetryCount(0);
+        fileDifyDO.setSyncTime(LocalDateTime.now());
+        fileDifyMapper.insert(fileDifyDO);
+        return fileDifyDO.getId();
     }
 } 

@@ -68,4 +68,12 @@ public interface FileService {
      */
     byte[] getFileContent(Long configId, String path) throws Exception;
 
+    /**
+     * 根据编号获取文件
+     *
+     * @param id 文件编号
+     * @return 文件对象
+     */
+    FileDO getFile(Long id);
+
 }

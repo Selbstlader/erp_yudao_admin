@@ -61,9 +61,20 @@ public class FileController {
     }
 
     @PostMapping("/create")
-    @Operation(summary = "创建文件", description = "模式二：前端上传文件：配合 presigned-url 接口，记录上传了上传的文件")
-    public CommonResult<Long> createFile(@Valid @RequestBody FileCreateReqVO createReqVO) {
-        return success(fileService.createFile(createReqVO));
+    @Operation(summary = "上传文件")
+    @PreAuthorize("@ss.hasPermission('infra:file:create')")
+    public CommonResult<Long> createFile(@RequestParam("file") MultipartFile file,
+                                        @RequestParam(value = "path", required = false) String path,
+                                        @RequestParam(value = "name", required = false) String name,
+                                        @RequestParam(value = "syncDify", required = false) Boolean syncDify,
+                                        @RequestParam(value = "difyDatasetId", required = false) String difyDatasetId) throws Exception {
+        FileCreateReqVO reqVO = new FileCreateReqVO();
+        reqVO.setFile(file);
+        reqVO.setPath(path);
+        reqVO.setName(name);
+        reqVO.setSyncDify(syncDify);
+        reqVO.setDifyDatasetId(difyDatasetId);
+        return success(fileService.createFile(reqVO));
     }
 
     @DeleteMapping("/delete")

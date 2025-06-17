@@ -86,18 +86,30 @@ public class DifyClientImpl implements DifyClient {
         
         // 模拟form表单提交文件
         try {
-            HttpRequest request = HttpUtil.createPost(difyProperties.getBaseUrl() + "/v1/datasets/" + datasetId + "/document/create-by-file")
-                    .header("Authorization", "Bearer " + difyProperties.getApiKey())
-                    .form("file", file);
+            String url = difyProperties.getBaseUrl() + "/v1/datasets/" + datasetId + "/document/create-by-file";
             
-            // 添加data表单参数
-            if (form.containsKey("data")) {
-                request.form("data", form.get("data"), "text/plain");
-            }
+            log.debug("[createDocumentByFile][准备上传文件，URL: {}, 文件名: {}, 大小: {}]", 
+                     url, file.getName(), file.length());
+            
+            // 使用HttpUtil来创建请求对象
+            HttpRequest request = HttpUtil.createPost(url)
+                    .header("Authorization", "Bearer " + difyProperties.getApiKey());
             
             // 设置超时
             request.timeout(difyProperties.getConnectTimeout());
             request.setReadTimeout(difyProperties.getReadTimeout());
+            
+            // 将所有表单字段一次性添加，而不是分两次调用
+            HashMap<String, Object> formMap = new HashMap<>();
+            if (form.containsKey("data")) {
+                String metadataJson = form.get("data").toString();
+                log.debug("[createDocumentByFile][data参数: {}]", metadataJson);
+                formMap.put("data", metadataJson);
+            }
+            formMap.put("file", file);
+            
+            // 一次性添加所有表单数据
+            request.form(formMap);
             
             HttpResponse response = request.execute();
             String responseBody = response.body();
@@ -106,8 +118,8 @@ public class DifyClientImpl implements DifyClient {
             if (response.isOk()) {
                 JSONObject jsonObject = JSONUtil.parseObj(responseBody);
                 // 检查是否包含data字段
-                if (jsonObject.containsKey("data")) {
-                    return JSONUtil.toBean(jsonObject.getJSONObject("data").toString(), DocumentRespDTO.class);
+                if (jsonObject.containsKey("document")) {
+                    return JSONUtil.toBean(jsonObject.getJSONObject("document").toString(), DocumentRespDTO.class);
                 }
                 return JSONUtil.toBean(responseBody, DocumentRespDTO.class);
             } else {
@@ -134,18 +146,30 @@ public class DifyClientImpl implements DifyClient {
         
         // 模拟form表单提交文件
         try {
-            HttpRequest request = HttpUtil.createPost(difyProperties.getBaseUrl() + "/v1/datasets/" + datasetId + "/documents/" + documentId + "/update-by-file")
-                    .header("Authorization", "Bearer " + difyProperties.getApiKey())
-                    .form("file", file);
+            String url = difyProperties.getBaseUrl() + "/v1/datasets/" + datasetId + "/documents/" + documentId + "/update-by-file";
             
-            // 添加data表单参数
-            if (form.containsKey("data")) {
-                request.form("data", form.get("data"), "text/plain");
-            }
+            log.debug("[updateDocumentByFile][准备上传文件，URL: {}, 文件名: {}, 大小: {}]", 
+                     url, file.getName(), file.length());
+            
+            // 使用HttpUtil来创建请求对象
+            HttpRequest request = HttpUtil.createPost(url)
+                    .header("Authorization", "Bearer " + difyProperties.getApiKey());
             
             // 设置超时
             request.timeout(difyProperties.getConnectTimeout());
             request.setReadTimeout(difyProperties.getReadTimeout());
+            
+            // 将所有表单字段一次性添加，而不是分两次调用
+            HashMap<String, Object> formMap = new HashMap<>();
+            if (form.containsKey("data")) {
+                String metadataJson = form.get("data").toString();
+                log.debug("[updateDocumentByFile][data参数: {}]", metadataJson);
+                formMap.put("data", metadataJson);
+            }
+            formMap.put("file", file);
+            
+            // 一次性添加所有表单数据
+            request.form(formMap);
             
             HttpResponse response = request.execute();
             String responseBody = response.body();
@@ -153,9 +177,9 @@ public class DifyClientImpl implements DifyClient {
             // 处理响应
             if (response.isOk()) {
                 JSONObject jsonObject = JSONUtil.parseObj(responseBody);
-                // 检查是否包含data字段
-                if (jsonObject.containsKey("data")) {
-                    return JSONUtil.toBean(jsonObject.getJSONObject("data").toString(), DocumentRespDTO.class);
+                // 检查是否包含document字段
+                if (jsonObject.containsKey("document")) {
+                    return JSONUtil.toBean(jsonObject.getJSONObject("document").toString(), DocumentRespDTO.class);
                 }
                 return JSONUtil.toBean(responseBody, DocumentRespDTO.class);
             } else {
@@ -241,16 +265,12 @@ public class DifyClientImpl implements DifyClient {
     @Override
     public String createDataset(DifyCreateDatasetRequest request) {
         log.info("[createDataset][开始创建数据集({})][indexingTechnique: {}]", request.getName(), request.getIndexingTechnique());
-        // 检查API密钥格式，若是dataset-开头的数据集级别密钥，给出明确错误提示
-        if (StrUtil.startWithIgnoreCase(difyProperties.getApiKey(), "dataset-")) {
-            throw new DifyApiException("无法创建知识库：API密钥格式错误，当前使用的是数据集级别API密钥(dataset-*)，创建知识库需要使用应用程序级别API密钥(app-*)");
-        }
         
         try {
             // 打印请求详情
             log.debug("[createDataset][请求参数: {}]", JSONUtil.toJsonStr(request));
             
-            String endpoint = "/datasets";
+            String endpoint = "/v1/datasets";
             Map<String, Object> params = new HashMap<>();
             params.put("name", request.getName());
             params.put("permission", request.getPermission());
@@ -439,10 +459,39 @@ public class DifyClientImpl implements DifyClient {
                     return null;
                 }
                 
+                // 为了调试，记录原始响应
+                log.debug("[handleResponse][原始响应: {}]", responseBody);
+                
                 JSONObject jsonObject = JSONUtil.parseObj(responseBody);
+                
+                // 特殊处理DocumentRespDTO类型
+                if (responseType == DocumentRespDTO.class) {
+                    // 检查是否包含document字段（文件上传API）
+                    if (jsonObject.containsKey("document")) {
+                        DocumentRespDTO result = JSONUtil.toBean(jsonObject.getJSONObject("document").toString(), DocumentRespDTO.class);
+                        // 如果包含batch字段，设置到结果中
+                        if (jsonObject.containsKey("batch")) {
+                            result.setBatch(jsonObject.getStr("batch"));
+                        }
+                        return (T) result;
+                    }
+                }
+                
                 // 检查是否包含data字段
                 if (jsonObject.containsKey("data")) {
-                    return JSONUtil.toBean(jsonObject.getJSONObject("data").toString(), responseType);
+                    // 判断data字段是对象还是数组
+                    Object dataObject = jsonObject.get("data");
+                    if (dataObject instanceof cn.hutool.json.JSONArray) {
+                        // data是数组，直接使用整个响应进行转换
+                        return JSONUtil.toBean(responseBody, responseType);
+                    } else if (dataObject instanceof cn.hutool.json.JSONObject) {
+                        // data是对象，提取data对象进行转换
+                        return JSONUtil.toBean(jsonObject.getJSONObject("data").toString(), responseType);
+                    } else {
+                        // 其他情况，尝试整个响应转换
+                        log.warn("[handleResponse][未识别的data类型: {}，尝试直接转换整个响应]", dataObject.getClass().getName());
+                        return JSONUtil.toBean(responseBody, responseType);
+                    }
                 }
                 return JSONUtil.toBean(responseBody, responseType);
             } else {

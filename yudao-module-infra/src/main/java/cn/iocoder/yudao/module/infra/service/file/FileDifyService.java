@@ -94,4 +94,21 @@ public interface FileDifyService {
      * 同步检查任务
      */
     void syncCheckTask();
+
+    /**
+     * 创建文件同步记录
+     *
+     * @param fileId 文件ID
+     * @return 同步记录ID
+     */
+    Long createSyncRecord(Long fileId);
+
+    /**
+     * 创建文件同步记录，使用指定的知识库ID
+     *
+     * @param fileId 文件ID
+     * @param datasetId 知识库ID
+     * @return 同步记录ID
+     */
+    Long createSyncRecord(Long fileId, String datasetId);
 } 

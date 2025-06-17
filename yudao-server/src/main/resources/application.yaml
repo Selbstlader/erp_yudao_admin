@@ -69,7 +69,7 @@ mybatis-plus:
     map-underscore-to-camel-case: true # 虽然默认为 true ，但是还是显示去指定下。
   global-config:
     db-config:
-      id-type: NONE # “智能”模式，基于 IdTypeEnvironmentPostProcessor + 数据源的类型，自动适配成 AUTO、INPUT 模式。
+      id-type: NONE # "智能"模式，基于 IdTypeEnvironmentPostProcessor + 数据源的类型，自动适配成 AUTO、INPUT 模式。
 #      id-type: AUTO # 自增 ID，适合 MySQL 等直接自增的数据库
 #      id-type: INPUT # 用户输入 ID，适合 Oracle、PostgreSQL、Kingbase、DB2、H2 数据库
 #      id-type: ASSIGN_ID # 分配 ID，默认使用雪花算法。注意，Oracle、PostgreSQL、Kingbase、DB2、H2 数据库时，需要去除实体类上的 @KeySequence 注解
@@ -316,3 +316,17 @@ debug: false
 # 插件配置 TODO 芋艿：【IOT】需要处理下
 pf4j:
   pluginsDir: /Users/anhaohao/code/gitee/ruoyi-vue-pro/plugins # 插件目录
+
+dify: # Dify 配置项
+  enabled: ${yudao.dify.enabled} # 是否启用
+  base-url: ${yudao.dify.base-url} # API 地址
+  api-key: ${yudao.dify.api-key} # API 密钥
+  default-dataset-id: ${yudao.dify.default-dataset-id} # 默认知识库ID，可通过知识库管理页面选择或创建
+  indexing-technique: ${yudao.dify.indexing-technique} # 索引技术
+  auto-sync: ${yudao.dify.auto-sync} # 是否自动同步
+  connect-timeout: ${yudao.dify.connect-timeout} # 连接超时时间，单位：毫秒
+  read-timeout: ${yudao.dify.read-timeout} # 读取超时时间，单位：毫秒
+  retry:
+    max-retries: ${yudao.dify.retry.max-retries} # 最大重试次数
+    initial-retry-interval: ${yudao.dify.retry.initial-retry-interval} # 初始重试间隔，单位：毫秒
+    retry-multiplier: ${yudao.dify.retry.retry-multiplier} # 重试间隔乘数
