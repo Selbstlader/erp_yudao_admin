@@ -321,6 +321,7 @@ dify: # Dify 配置项
   enabled: ${yudao.dify.enabled} # 是否启用
   base-url: ${yudao.dify.base-url} # API 地址
   api-key: ${yudao.dify.api-key} # API 密钥
+  chat-api-key: ${yudao.dify.chat-api-key} # 聊天API密钥
   default-dataset-id: ${yudao.dify.default-dataset-id} # 默认知识库ID，可通过知识库管理页面选择或创建
   indexing-technique: ${yudao.dify.indexing-technique} # 索引技术
   auto-sync: ${yudao.dify.auto-sync} # 是否自动同步

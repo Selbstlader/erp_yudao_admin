@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.infra.controller.admin.file.vo.dify.FileDifySyncP
 import cn.iocoder.yudao.module.infra.controller.admin.file.vo.dify.FileDifySyncRespVO;
 import cn.iocoder.yudao.module.infra.convert.file.FileDifyConvert;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDifyDO;
+import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.framework.dify.config.DifyProperties;
 import cn.iocoder.yudao.module.infra.service.file.FileDifyService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,6 +38,9 @@ public class FileDifyController {
     
     @Resource
     private DifyProperties difyProperties;
+    
+    @Resource
+    private FileMapper fileMapper;
 
     @PostMapping("/sync")
     @Operation(summary = "同步文件到Dify知识库")
@@ -44,7 +48,9 @@ public class FileDifyController {
     public CommonResult<FileDifySyncRespVO> syncFile(@RequestParam("fileId") Long fileId,
                                                     @RequestParam(value = "datasetId", required = false) String datasetId) {
         FileDifyDO fileDifyDO = fileDifyService.syncFileToDataset(fileId, datasetId);
-        return success(FileDifyConvert.INSTANCE.convert(fileDifyDO));
+        FileDifySyncRespVO respVO = FileDifyConvert.INSTANCE.convert(fileDifyDO);
+        FileDifyConvert.INSTANCE.fillFileName(fileMapper, fileDifyDO, respVO);
+        return success(respVO);
     }
     
     @PostMapping("/batch-sync")
@@ -53,7 +59,9 @@ public class FileDifyController {
     public CommonResult<List<FileDifySyncRespVO>> batchSyncFiles(@RequestParam("fileIds") List<Long> fileIds,
                                                                @RequestParam(value = "datasetId", required = false) String datasetId) {
         List<FileDifyDO> fileDifyDOList = fileDifyService.batchSyncFiles(fileIds, datasetId);
-        return success(FileDifyConvert.INSTANCE.convertList(fileDifyDOList));
+        List<FileDifySyncRespVO> respVOList = FileDifyConvert.INSTANCE.convertList(fileDifyDOList);
+        FileDifyConvert.INSTANCE.fillFileNames(fileMapper, fileDifyDOList, respVOList);
+        return success(respVOList);
     }
     
     @PutMapping("/update-sync")
@@ -62,7 +70,9 @@ public class FileDifyController {
     public CommonResult<FileDifySyncRespVO> updateFileSync(@RequestParam("fileId") Long fileId,
                                                          @RequestParam(value = "datasetId", required = false) String datasetId) {
         FileDifyDO fileDifyDO = fileDifyService.updateFileSync(fileId, datasetId);
-        return success(FileDifyConvert.INSTANCE.convert(fileDifyDO));
+        FileDifySyncRespVO respVO = FileDifyConvert.INSTANCE.convert(fileDifyDO);
+        FileDifyConvert.INSTANCE.fillFileName(fileMapper, fileDifyDO, respVO);
+        return success(respVO);
     }
     
     @DeleteMapping("/delete-sync")
@@ -79,7 +89,11 @@ public class FileDifyController {
     @PreAuthorize("@ss.hasPermission('infra:file:query')")
     public CommonResult<FileDifySyncRespVO> getFileSyncStatus(@RequestParam("fileId") Long fileId) {
         FileDifyDO fileDifyDO = fileDifyService.getFileSyncStatus(fileId);
-        return success(FileDifyConvert.INSTANCE.convert(fileDifyDO));
+        FileDifySyncRespVO respVO = FileDifyConvert.INSTANCE.convert(fileDifyDO);
+        if (respVO != null) {
+            FileDifyConvert.INSTANCE.fillFileName(fileMapper, fileDifyDO, respVO);
+        }
+        return success(respVO);
     }
     
     @GetMapping("/page")
@@ -87,7 +101,11 @@ public class FileDifyController {
     @PreAuthorize("@ss.hasPermission('infra:file:query')")
     public CommonResult<PageResult<FileDifySyncRespVO>> getFileSyncPage(@Valid FileDifySyncPageReqVO pageVO) {
         PageResult<FileDifyDO> pageResult = fileDifyService.getFileSyncPage(pageVO);
-        return success(FileDifyConvert.INSTANCE.convertPage(pageResult));
+        PageResult<FileDifySyncRespVO> respPageResult = FileDifyConvert.INSTANCE.convertPage(pageResult);
+        if (!pageResult.getList().isEmpty()) {
+            FileDifyConvert.INSTANCE.fillFileNames(fileMapper, pageResult.getList(), respPageResult.getList());
+        }
+        return success(respPageResult);
     }
     
     @PostMapping("/trigger-sync")
@@ -95,7 +113,9 @@ public class FileDifyController {
     @PreAuthorize("@ss.hasPermission('infra:file:sync')")
     public CommonResult<FileDifySyncRespVO> triggerSync(@RequestParam("fileId") Long fileId) {
         FileDifyDO fileDifyDO = fileDifyService.triggerSync(fileId);
-        return success(FileDifyConvert.INSTANCE.convert(fileDifyDO));
+        FileDifySyncRespVO respVO = FileDifyConvert.INSTANCE.convert(fileDifyDO);
+        FileDifyConvert.INSTANCE.fillFileName(fileMapper, fileDifyDO, respVO);
+        return success(respVO);
     }
     
     @PostMapping("/retry-sync")
@@ -103,7 +123,9 @@ public class FileDifyController {
     @PreAuthorize("@ss.hasPermission('infra:file:sync')")
     public CommonResult<FileDifySyncRespVO> retrySync(@RequestParam("fileId") Long fileId) {
         FileDifyDO fileDifyDO = fileDifyService.retrySync(fileId);
-        return success(FileDifyConvert.INSTANCE.convert(fileDifyDO));
+        FileDifySyncRespVO respVO = FileDifyConvert.INSTANCE.convert(fileDifyDO);
+        FileDifyConvert.INSTANCE.fillFileName(fileMapper, fileDifyDO, respVO);
+        return success(respVO);
     }
     
     @GetMapping("/config")
@@ -115,6 +137,7 @@ public class FileDifyController {
         configVO.setAutoSync(difyProperties.getAutoSync());
         configVO.setDefaultDatasetId(difyProperties.getDefaultDatasetId());
         configVO.setBaseUrl(difyProperties.getBaseUrl());
+        configVO.setChatApiKey(difyProperties.getChatApiKey());
         return success(configVO);
     }
     
@@ -127,6 +150,9 @@ public class FileDifyController {
         difyProperties.setAutoSync(updateReqVO.getAutoSync());
         if (updateReqVO.getDefaultDatasetId() != null) {
             difyProperties.setDefaultDatasetId(updateReqVO.getDefaultDatasetId());
+        }
+        if (updateReqVO.getChatApiKey() != null) {
+            difyProperties.setChatApiKey(updateReqVO.getChatApiKey());
         }
         return success(true);
     }

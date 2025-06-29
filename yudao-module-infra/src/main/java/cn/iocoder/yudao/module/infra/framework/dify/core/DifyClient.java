@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.infra.framework.dify.dto.request.DocumentTextReqD
 import cn.iocoder.yudao.module.infra.framework.dify.dto.request.MetadataFieldReqDTO;
 import cn.iocoder.yudao.module.infra.framework.dify.dto.request.DocumentMetadataReqDTO;
 import cn.iocoder.yudao.module.infra.framework.dify.dto.request.RetrieveReqDTO;
+import cn.iocoder.yudao.module.infra.framework.dify.dto.request.ChatMessageReqDTO;
 import cn.iocoder.yudao.module.infra.framework.dify.dto.response.*;
 
 import java.io.File;
@@ -182,4 +183,62 @@ public interface DifyClient {
      * @return 元数据字段列表
      */
     MetadataListRespDTO getMetadataFields(String datasetId);
+    
+    // 聊天功能
+    
+    /**
+     * 发送聊天消息（阻塞模式）
+     * 
+     * @param request 聊天消息请求
+     * @return 聊天消息响应
+     */
+    ChatMessageRespDTO sendChatMessage(ChatMessageReqDTO request);
+    
+    /**
+     * 发送聊天消息（流式模式）
+     * 
+     * @param request 聊天消息请求
+     * @return 聊天消息响应流
+     */
+    void sendChatMessageStream(ChatMessageReqDTO request, ChatMessageStreamListener listener);
+    
+    /**
+     * 获取会话列表
+     * 
+     * @param user 用户ID
+     * @param page 页码
+     * @param limit 每页条数
+     * @return 会话列表
+     */
+    ConversationListRespDTO getConversations(String user, int page, int limit);
+    
+    /**
+     * 重命名会话
+     * 
+     * @param conversationId 会话ID
+     * @param name 新名称
+     * @param user 用户ID
+     * @return 是否成功
+     */
+    boolean renameConversation(String conversationId, String name, String user);
+    
+    /**
+     * 删除会话
+     * 
+     * @param conversationId 会话ID
+     * @param user 用户ID
+     * @return 是否成功
+     */
+    boolean deleteConversation(String conversationId, String user);
+    
+    /**
+     * 获取会话消息历史
+     * 
+     * @param conversationId 会话ID
+     * @param user 用户ID
+     * @param firstId 起始消息ID
+     * @param limit 消息数量限制
+     * @return 消息历史
+     */
+    MessageHistoryRespDTO getMessageHistory(String conversationId, String user, String firstId, int limit);
 } 

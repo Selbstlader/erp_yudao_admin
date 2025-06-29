@@ -50,6 +50,9 @@
         <el-button type="info" plain @click="handleDifyManage" v-hasPermi="['infra:file:sync']">
           <Icon icon="ep:management" class="mr-5px" /> Dify同步管理
         </el-button>
+        <el-button type="primary" plain @click="handleAIChat">
+          <Icon icon="ep:chat-square" class="mr-5px" /> AI对话助手
+        </el-button>
       </el-form-item>
     </el-form>
   </ContentWrap>
@@ -338,6 +341,11 @@ const confirmBatchSync = async () => {
 /** 跳转到Dify管理页面 */
 const handleDifyManage = () => {
   router.push('/infra/file/dify')
+}
+
+/** 跳转到AI对话助手页面 */
+const handleAIChat = () => {
+  router.push('/infra/file/chat-dialog')
 }
 
 /** 初始化 **/

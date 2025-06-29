@@ -18,4 +18,7 @@ public class DifyConfigRespVO {
 
     @Schema(description = "API基础路径", requiredMode = Schema.RequiredMode.REQUIRED, example = "https://api.dify.ai")
     private String baseUrl;
+    
+    @Schema(description = "聊天API密钥", requiredMode = Schema.RequiredMode.REQUIRED, example = "app-xxx")
+    private String chatApiKey;
 } 

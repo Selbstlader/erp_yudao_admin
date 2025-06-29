@@ -65,6 +65,7 @@
     <el-table v-loading="loading" :data="list" @selection-change="handleSelectionChange" @row-click="handleRowClick">
       <el-table-column type="selection" width="55" align="center" />
       <el-table-column label="文件ID" align="center" prop="fileId" />
+      <el-table-column label="文件名称" align="center" prop="fileName" :show-overflow-tooltip="true" />
       <el-table-column label="同步状态" align="center" prop="syncStatusName">
         <template #default="{ row }">
           <el-tag :type="getSyncStatusType(row.syncStatus)">{{ row.syncStatusName }}</el-tag>
@@ -160,6 +161,7 @@
     <el-descriptions :column="1" border>
       <el-descriptions-item label="API基础URL">{{ difyConfig.baseUrl }}</el-descriptions-item>
       <el-descriptions-item label="默认知识库">{{ difyConfig.defaultDatasetId || '未设置' }}</el-descriptions-item>
+      <el-descriptions-item label="聊天API密钥">{{ difyConfig.chatApiKey || '未设置' }}</el-descriptions-item>
     </el-descriptions>
     <el-divider>功能设置</el-divider>
     <el-form :model="configForm" label-width="120px">
@@ -175,6 +177,12 @@
       <el-form-item label="默认知识库ID">
         <el-input v-model="configForm.defaultDatasetId" placeholder="请输入默认知识库ID" :disabled="!configForm.enabled" />
       </el-form-item>
+      <el-form-item label="聊天API密钥">
+        <el-input v-model="configForm.chatApiKey" placeholder="请输入聊天API密钥(app-开头)" :disabled="!configForm.enabled" />
+        <div class="mt-2 text-gray-500 text-xs">
+          用于聊天功能的API密钥，通常以app-开头
+        </div>
+      </el-form-item>
     </el-form>
     <template #footer>
       <el-button @click="configVisible = false">取消</el-button>
@@ -188,24 +196,26 @@
   </el-dialog>
 
   <!-- 同步详情抽屉 -->
-  <el-drawer v-model="syncDetailVisible" title="同步详情" size="500px" direction="rtl">
+  <el-drawer
+    v-model="syncDetailVisible"
+    title="同步详情"
+    size="500px"
+  >
     <el-descriptions :column="1" border>
       <el-descriptions-item label="文件ID">{{ currentDetail.fileId }}</el-descriptions-item>
+      <el-descriptions-item label="文件名称">{{ currentDetail.fileName }}</el-descriptions-item>
       <el-descriptions-item label="同步状态">
-        <el-tag :type="getSyncStatusType(currentDetail.syncStatus || 0)">{{ currentDetail.syncStatusName }}</el-tag>
+        <el-tag :type="getSyncStatusType(currentDetail.syncStatus)">{{ currentDetail.syncStatusName }}</el-tag>
       </el-descriptions-item>
       <el-descriptions-item label="知识库ID">{{ currentDetail.datasetId }}</el-descriptions-item>
       <el-descriptions-item label="文档ID">{{ currentDetail.difyDocumentId }}</el-descriptions-item>
-      <el-descriptions-item label="批处理ID">{{ currentDetail.batchId }}</el-descriptions-item>
+      <el-descriptions-item label="批处理ID">{{ currentDetail.batchId || '-' }}</el-descriptions-item>
       <el-descriptions-item label="重试次数">{{ currentDetail.retryCount }}</el-descriptions-item>
-      <el-descriptions-item label="下次重试时间">{{ currentDetail.nextRetryTime }}</el-descriptions-item>
       <el-descriptions-item label="上次同步时间">{{ currentDetail.syncTime }}</el-descriptions-item>
+      <el-descriptions-item label="下次重试时间">{{ currentDetail.nextRetryTime || '-' }}</el-descriptions-item>
       <el-descriptions-item label="创建时间">{{ currentDetail.createTime }}</el-descriptions-item>
-      <el-descriptions-item v-if="currentDetail.errorMessage" label="错误信息">
-        <div class="text-red-500">{{ currentDetail.errorMessage }}</div>
-      </el-descriptions-item>
-      <el-descriptions-item v-if="currentDetail.errorCode" label="错误码">
-        <div class="text-red-500">{{ currentDetail.errorCode }}</div>
+      <el-descriptions-item label="错误信息" v-if="currentDetail.errorMessage">
+        <div class="text-red-500 whitespace-pre-wrap">{{ currentDetail.errorMessage }}</div>
       </el-descriptions-item>
     </el-descriptions>
     
@@ -238,6 +248,7 @@
 import { dateFormatter } from '@/utils/formatTime'
 import * as DifyApi from '@/api/infra/file/dify'
 import { FileDifySyncRespVO, DifyConfigRespVO } from '@/api/infra/file/dify'
+import { PageParam, PageResult } from '@/api/model/common'
 import FileForm from '../FileForm.vue'
 import { useRouter } from 'vue-router'
 
@@ -286,7 +297,22 @@ const selectedFiles = ref<number[]>([])
 
 // 同步详情相关
 const syncDetailVisible = ref(false)
-const currentDetail = ref<Partial<FileDifySyncRespVO>>({})
+const currentDetail = ref<any>({
+  id: 0,
+  fileId: 0,
+  fileName: '',
+  difyDocumentId: '',
+  syncStatus: 0,
+  syncStatusName: '',
+  errorMessage: '',
+  errorCode: '',
+  datasetId: '',
+  batchId: '',
+  retryCount: 0,
+  nextRetryTime: '',
+  syncTime: '',
+  createTime: ''
+})
 
 // 文件上传表单
 const formRef = ref()
@@ -297,12 +323,14 @@ const difyConfig = ref<DifyConfigRespVO>({
   enabled: true,
   autoSync: true,
   defaultDatasetId: '',
-  baseUrl: ''
+  baseUrl: '',
+  chatApiKey: ''
 })
 const configForm = reactive({
   enabled: true,
   autoSync: true,
-  defaultDatasetId: ''
+  defaultDatasetId: '',
+  chatApiKey: ''
 })
 
 /** 查询列表 */
@@ -438,6 +466,7 @@ const handleOpenConfig = async () => {
     configForm.enabled = config.enabled
     configForm.autoSync = config.autoSync
     configForm.defaultDatasetId = config.defaultDatasetId
+    configForm.chatApiKey = config.chatApiKey
     configVisible.value = true
     
     // 检查是否配置了默认知识库
@@ -460,7 +489,8 @@ const saveConfig = async () => {
     await DifyApi.updateDifyConfig({
       enabled: configForm.enabled,
       autoSync: configForm.autoSync,
-      defaultDatasetId: configForm.defaultDatasetId || undefined
+      defaultDatasetId: configForm.defaultDatasetId || undefined,
+      chatApiKey: configForm.chatApiKey || undefined
     })
     message.success('配置已保存')
     configVisible.value = false

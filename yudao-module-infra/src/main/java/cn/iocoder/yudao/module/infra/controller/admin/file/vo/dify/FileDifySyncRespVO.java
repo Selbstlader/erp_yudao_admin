@@ -19,6 +19,9 @@ public class FileDifySyncRespVO {
 
     @Schema(description = "文件ID", requiredMode = Schema.RequiredMode.REQUIRED, example = "1024")
     private Long fileId;
+    
+    @Schema(description = "文件名称", requiredMode = Schema.RequiredMode.REQUIRED, example = "example.pdf")
+    private String fileName;
 
     @Schema(description = "Dify文档ID", example = "dify_doc_123")
     private String difyDocumentId;

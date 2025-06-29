@@ -339,6 +339,7 @@ yudao:
   dify: # Dify 配置项
     enabled: true # 启用Dify功能
     base-url: https://api.dify.ai # 官方API域名
+    chat-api-key: app-D7hSHUnPoMt5CQD2IEoBsPJz # 对话API密钥
     api-key: dataset-QQ8Y3Cxvss4RvQXvU7Gem4sb # 数据集级别API密钥
     default-dataset-id: dataset-QQ8Y3Cxvss4RvQXvU7Gem4sb # 与API密钥匹配的数据集ID
     indexing-technique: high_quality # 索引技术：high_quality(高质量) / economy(经济)

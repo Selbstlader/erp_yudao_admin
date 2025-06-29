@@ -220,6 +220,19 @@ const remainingRouter: AppRouteRecordRaw[] = [
           title: 'AI智能助手',
           activeMenu: '/infra/file'
         }
+      },
+      {
+        path: 'chat-dialog',
+        component: () => import('@/views/infra/file/dify/chat-dialog.vue'),
+        name: 'InfraFileDifyChatDialog',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: 'ep:chat-square',
+          title: 'AI对话助手',
+          activeMenu: '/infra/file'
+        }
       }
     ]
   },

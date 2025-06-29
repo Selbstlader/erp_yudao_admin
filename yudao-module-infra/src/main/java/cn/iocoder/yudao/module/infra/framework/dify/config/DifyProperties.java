@@ -18,9 +18,14 @@ public class DifyProperties {
     private String baseUrl;
 
     /**
-     * API密钥
+     * API密钥 (用于知识库操作)
      */
     private String apiKey;
+    
+    /**
+     * 聊天API密钥 (用于聊天操作)
+     */
+    private String chatApiKey;
 
     /**
      * 默认知识库ID

@@ -18,4 +18,7 @@ public class DifyConfigUpdateReqVO {
 
     @Schema(description = "默认知识库ID", requiredMode = Schema.RequiredMode.NOT_REQUIRED, example = "1024")
     private String defaultDatasetId;
+    
+    @Schema(description = "聊天API密钥", requiredMode = Schema.RequiredMode.NOT_REQUIRED, example = "app-xxx")
+    private String chatApiKey;
 } 

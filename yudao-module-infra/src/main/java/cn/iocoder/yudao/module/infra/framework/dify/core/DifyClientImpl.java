@@ -18,13 +18,16 @@ import cn.iocoder.yudao.module.infra.framework.dify.dto.request.DocumentTextReqD
 import cn.iocoder.yudao.module.infra.framework.dify.dto.request.MetadataFieldReqDTO;
 import cn.iocoder.yudao.module.infra.framework.dify.dto.request.DocumentMetadataReqDTO;
 import cn.iocoder.yudao.module.infra.framework.dify.dto.request.RetrieveReqDTO;
+import cn.iocoder.yudao.module.infra.framework.dify.dto.request.ChatMessageReqDTO;
 import cn.iocoder.yudao.module.infra.framework.dify.dto.response.*;
 import cn.iocoder.yudao.module.infra.framework.dify.exception.DifyApiException;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStreamReader;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -253,7 +256,7 @@ public class DifyClientImpl implements DifyClient {
 
     @Override
     public MetadataListRespDTO getMetadataFields(String datasetId) {
-        return doGet("/v1/datasets/" + datasetId + "/metadata", null, MetadataListRespDTO.class);
+        return doGet("/v1/datasets/" + datasetId + "/metadata-fields", null, MetadataListRespDTO.class);
     }
 
     /**
@@ -292,6 +295,24 @@ public class DifyClientImpl implements DifyClient {
     }
 
     /**
+     * 获取适合当前操作的API密钥
+     * 聊天相关API使用chatApiKey，数据集和文档相关API使用apiKey
+     *
+     * @param endpoint API端点路径
+     * @return 适合当前操作的API密钥
+     */
+    private String getApiKeyForEndpoint(String endpoint) {
+        // 聊天相关API使用chatApiKey
+        if (endpoint.startsWith("/v1/chat") || 
+            endpoint.startsWith("/v1/conversation") || 
+            endpoint.startsWith("/v1/messages")) {
+            return getChatApiKey();
+        }
+        // 其他API使用apiKey
+        return difyProperties.getApiKey();
+    }
+
+    /**
      * 执行GET请求
      * 
      * @param endpoint 接口路径
@@ -302,7 +323,7 @@ public class DifyClientImpl implements DifyClient {
     private <T> T doGet(String endpoint, Map<String, Object> params, Class<T> responseType) {
         try {
             HttpRequest request = HttpUtil.createGet(difyProperties.getBaseUrl() + endpoint);
-            request.header("Authorization", "Bearer " + difyProperties.getApiKey());
+            request.header("Authorization", "Bearer " + getApiKeyForEndpoint(endpoint));
             request.header("Content-Type", "application/json");
             
             // 设置请求参数
@@ -335,13 +356,14 @@ public class DifyClientImpl implements DifyClient {
      */
     private <T> T doPost(String endpoint, Object body, Class<T> responseType) {
         try {
+            String apiKey = getApiKeyForEndpoint(endpoint);
             log.debug("[doPost][开始请求 endpoint: {}, apiKey: {}, body: {}]", 
                       endpoint, 
-                      StrUtil.hide(difyProperties.getApiKey(), 3, difyProperties.getApiKey().length() - 3),
+                      StrUtil.hide(apiKey, 3, apiKey.length() - 3),
                       JSONUtil.toJsonStr(body));
             
             HttpRequest request = HttpUtil.createPost(difyProperties.getBaseUrl() + endpoint);
-            request.header("Authorization", "Bearer " + difyProperties.getApiKey());
+            request.header("Authorization", "Bearer " + apiKey);
             request.header("Content-Type", "application/json");
             
             // 设置请求体
@@ -381,7 +403,7 @@ public class DifyClientImpl implements DifyClient {
     private <T> T doPatch(String endpoint, Object body, Class<T> responseType) {
         try {
             HttpRequest request = HttpUtil.createRequest(Method.PATCH, difyProperties.getBaseUrl() + endpoint);
-            request.header("Authorization", "Bearer " + difyProperties.getApiKey());
+            request.header("Authorization", "Bearer " + getApiKeyForEndpoint(endpoint));
             request.header("Content-Type", "application/json");
             
             // 设置请求体
@@ -414,7 +436,7 @@ public class DifyClientImpl implements DifyClient {
     private void doDelete(String endpoint, Object body) {
         try {
             HttpRequest request = HttpUtil.createRequest(Method.DELETE, difyProperties.getBaseUrl() + endpoint);
-            request.header("Authorization", "Bearer " + difyProperties.getApiKey());
+            request.header("Authorization", "Bearer " + getApiKeyForEndpoint(endpoint));
             request.header("Content-Type", "application/json");
             
             // 设置请求体
@@ -524,6 +546,16 @@ public class DifyClientImpl implements DifyClient {
                 JSONObject jsonObject = JSONUtil.parseObj(responseBody, new JSONConfig().setIgnoreNullValue(false));
                 String code = jsonObject.getStr("code", "unknown");
                 String message = jsonObject.getStr("message", "未知错误");
+                
+                // 增强特定错误消息的提示
+                if ("Missing required parameter in the JSON body".equals(message)) {
+                    message = "请求缺少必需参数，请确保包含 'query'、'user' 和 'responseMode' 参数。前端请求时需要明确设置 responseMode: 'blocking' 或 'streaming'";
+                } else if (message.contains("Access token is invalid")) {
+                    message = "Dify API访问令牌无效，请检查配置中的API密钥是否正确设置";
+                } else if (message.contains("rate limit")) {
+                    message = "已达到Dify API请求频率限制，请稍后再试";
+                }
+                
                 throw new DifyApiException(statusCode, code, message);
             } else {
                 // 非JSON格式响应，如HTML页面
@@ -539,6 +571,335 @@ public class DifyClientImpl implements DifyClient {
             }
             log.error("解析错误响应失败: {} - {}", statusCode, responseBody, e);
             throw new DifyApiException(statusCode, "parse_error", "解析错误响应失败: " + e.getMessage());
+        }
+    }
+
+    // 聊天相关API实现
+
+    @Override
+    public ChatMessageRespDTO sendChatMessage(ChatMessageReqDTO request) {
+        Map<String, Object> params = buildChatMessageParams(request);
+        return doPostWithChatApiKey("/v1/chat-messages", params, ChatMessageRespDTO.class);
+    }
+
+    @Override
+    public void sendChatMessageStream(ChatMessageReqDTO request, ChatMessageStreamListener listener) {
+        String url = difyProperties.getBaseUrl() + "/v1/chat-messages";
+        Map<String, Object> params = buildChatMessageParams(request);
+        params.put("response_mode", "streaming");
+
+        try {
+            HttpRequest httpRequest = HttpRequest.post(url)
+                    .header("Authorization", "Bearer " + getChatApiKey())
+                    .header("Content-Type", "application/json")
+                    .header("Accept", "text/event-stream")
+                    .body(JSONUtil.toJsonStr(params))
+                    .timeout(difyProperties.getReadTimeout());
+
+            HttpResponse response = httpRequest.execute();
+            if (response.isOk()) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.bodyStream()))) {
+                    String line;
+                    StringBuilder fullContent = new StringBuilder();
+                    String messageId = null;
+                    String conversationId = null;
+
+                    while ((line = reader.readLine()) != null) {
+                        if (line.isEmpty()) {
+                            continue;
+                        }
+
+                        if (line.startsWith("data: ")) {
+                            String jsonData = line.substring(6);
+                            if ("[DONE]".equals(jsonData)) {
+                                // 流结束
+                                ChatMessageRespDTO respDTO = new ChatMessageRespDTO();
+                                respDTO.setId(messageId);
+                                respDTO.setConversationId(conversationId);
+                                respDTO.setAnswer(fullContent.toString());
+                                listener.onComplete(respDTO);
+                                break;
+                            }
+
+                            try {
+                                JSONObject data = JSONUtil.parseObj(jsonData);
+                                String event = data.getStr("event");
+                                if ("message".equals(event)) {
+                                    JSONObject message = data.getJSONObject("message");
+                                    if (messageId == null) {
+                                        messageId = message.getStr("id");
+                                    }
+                                    if (conversationId == null) {
+                                        conversationId = message.getStr("conversation_id");
+                                    }
+                                    String content = message.getStr("answer");
+                                    fullContent.append(content);
+                                    listener.onMessage(messageId, conversationId, content);
+                                }
+                            } catch (Exception e) {
+                                log.error("[sendChatMessageStream] 解析流数据异常", e);
+                                listener.onError("解析流数据异常: " + e.getMessage());
+                            }
+                        }
+                    }
+                }
+            } else {
+                String errorMsg = "请求失败，状态码: " + response.getStatus();
+                log.error("[sendChatMessageStream] {}", errorMsg);
+                listener.onError(errorMsg);
+            }
+        } catch (Exception e) {
+            log.error("[sendChatMessageStream] 发送流式聊天消息异常", e);
+            listener.onError("发送流式聊天消息异常: " + e.getMessage());
+            throw new DifyApiException("发送流式聊天消息失败", e);
+        }
+    }
+
+    @Override
+    public ConversationListRespDTO getConversations(String user, int page, int limit) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("user", user);
+        params.put("page", page);
+        params.put("limit", limit);
+        return doGetWithChatApiKey("/v1/conversations", params, ConversationListRespDTO.class);
+    }
+
+    @Override
+    public boolean renameConversation(String conversationId, String name, String user) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("name", name);
+        params.put("user", user);
+
+        try {
+            doPatchWithChatApiKey("/v1/conversations/" + conversationId, params, Object.class);
+            return true;
+        } catch (Exception e) {
+            log.error("[renameConversation] 重命名会话异常", e);
+            return false;
+        }
+    }
+
+    @Override
+    public boolean deleteConversation(String conversationId, String user) {
+        try {
+            Map<String, Object> params = new HashMap<>();
+            params.put("user", user);
+            doDeleteWithChatApiKey("/v1/conversations/" + conversationId, params);
+            return true;
+        } catch (Exception e) {
+            log.error("[deleteConversation] 删除会话异常", e);
+            return false;
+        }
+    }
+
+    @Override
+    public MessageHistoryRespDTO getMessageHistory(String conversationId, String user, String firstId, int limit) {
+        Map<String, Object> params = new HashMap<>();
+        // Keep using conversation_id for the Dify API, which expects snake_case
+        params.put("conversation_id", conversationId);
+        params.put("user", user);
+        params.put("limit", limit);
+        
+        if (StrUtil.isNotBlank(firstId)) {
+            params.put("first_id", firstId);
+        }
+        
+        return doGetWithChatApiKey("/v1/messages", params, MessageHistoryRespDTO.class);
+    }
+
+    /**
+     * 构建聊天消息请求参数
+     */
+    private Map<String, Object> buildChatMessageParams(ChatMessageReqDTO request) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("query", request.getQuery());
+        params.put("user", request.getUser());
+        params.put("response_mode", request.getResponseMode());
+        
+        // 确保inputs字段始终存在，即使为空也发送一个空对象
+        if (request.getInputs() != null && !request.getInputs().isEmpty()) {
+            params.put("inputs", request.getInputs());
+        } else {
+            params.put("inputs", new HashMap<>());
+        }
+        
+        if (StrUtil.isNotBlank(request.getConversationId())) {
+            params.put("conversation_id", request.getConversationId());
+        }
+        
+        if (request.getEnableSearch() != null) {
+            params.put("enable_search", request.getEnableSearch());
+        }
+        
+        if (StrUtil.isNotBlank(request.getSearchKeywords())) {
+            params.put("search_keywords", request.getSearchKeywords());
+        }
+        
+        if (request.getReturnReferences() != null) {
+            params.put("return_references", request.getReturnReferences());
+        }
+        
+        return params;
+    }
+
+    /**
+     * 获取聊天API密钥
+     * 如果chatApiKey为空，则回退使用apiKey
+     *
+     * @return 聊天API密钥
+     */
+    private String getChatApiKey() {
+        if (StrUtil.isNotBlank(difyProperties.getChatApiKey())) {
+            return difyProperties.getChatApiKey();
+        }
+        // 回退使用apiKey
+        return difyProperties.getApiKey();
+    }
+
+    /**
+     * 使用聊天API密钥进行GET请求
+     */
+    private <T> T doGetWithChatApiKey(String endpoint, Map<String, Object> params, Class<T> responseType) {
+        String url = difyProperties.getBaseUrl() + endpoint;
+        
+        // 构建查询参数
+        if (params != null && !params.isEmpty()) {
+            StringBuilder queryString = new StringBuilder();
+            for (Map.Entry<String, Object> entry : params.entrySet()) {
+                if (queryString.length() > 0) {
+                    queryString.append("&");
+                } else {
+                    queryString.append("?");
+                }
+                queryString.append(entry.getKey()).append("=").append(entry.getValue());
+            }
+            url += queryString.toString();
+        }
+        
+        try {
+            HttpRequest request = HttpUtil.createGet(url);
+            request.header("Authorization", "Bearer " + getChatApiKey());
+            request.header("Content-Type", "application/json");
+            
+            // 设置超时
+            request.timeout(difyProperties.getConnectTimeout());
+            request.setReadTimeout(difyProperties.getReadTimeout());
+            
+            HttpResponse response = request.execute();
+            return handleResponse(response, responseType);
+        } catch (Exception e) {
+            if (e instanceof DifyApiException) {
+                throw (DifyApiException) e;
+            }
+            log.error("GET请求异常: {}", url, e);
+            throw new DifyApiException("GET请求异常: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 使用聊天API密钥进行POST请求
+     */
+    private <T> T doPostWithChatApiKey(String endpoint, Object body, Class<T> responseType) {
+        String url = difyProperties.getBaseUrl() + endpoint;
+        
+        try {
+            HttpRequest request = HttpUtil.createPost(url);
+            request.header("Authorization", "Bearer " + getChatApiKey());
+            request.header("Content-Type", "application/json");
+            
+            // 设置超时
+            request.timeout(difyProperties.getConnectTimeout());
+            request.setReadTimeout(difyProperties.getReadTimeout());
+            
+            // 设置请求体
+            if (body != null) {
+                if (body instanceof String) {
+                    request.body((String) body);
+                } else {
+                    request.body(JSONUtil.toJsonStr(body));
+                }
+            }
+            
+            HttpResponse response = request.execute();
+            return handleResponse(response, responseType);
+        } catch (Exception e) {
+            if (e instanceof DifyApiException) {
+                throw (DifyApiException) e;
+            }
+            log.error("POST请求异常: {}", url, e);
+            throw new DifyApiException("POST请求异常: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 使用聊天API密钥进行PATCH请求
+     */
+    private <T> T doPatchWithChatApiKey(String endpoint, Object body, Class<T> responseType) {
+        String url = difyProperties.getBaseUrl() + endpoint;
+        
+        try {
+            HttpRequest request = HttpUtil.createRequest(Method.PATCH, url);
+            request.header("Authorization", "Bearer " + getChatApiKey());
+            request.header("Content-Type", "application/json");
+            
+            // 设置超时
+            request.timeout(difyProperties.getConnectTimeout());
+            request.setReadTimeout(difyProperties.getReadTimeout());
+            
+            // 设置请求体
+            if (body != null) {
+                if (body instanceof String) {
+                    request.body((String) body);
+                } else {
+                    request.body(JSONUtil.toJsonStr(body));
+                }
+            }
+            
+            HttpResponse response = request.execute();
+            return handleResponse(response, responseType);
+        } catch (Exception e) {
+            if (e instanceof DifyApiException) {
+                throw (DifyApiException) e;
+            }
+            log.error("PATCH请求异常: {}", url, e);
+            throw new DifyApiException("PATCH请求异常: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 使用聊天API密钥进行DELETE请求
+     */
+    private void doDeleteWithChatApiKey(String endpoint, Object body) {
+        String url = difyProperties.getBaseUrl() + endpoint;
+        
+        try {
+            HttpRequest request = HttpUtil.createRequest(Method.DELETE, url);
+            request.header("Authorization", "Bearer " + getChatApiKey());
+            request.header("Content-Type", "application/json");
+            
+            // 设置超时
+            request.timeout(difyProperties.getConnectTimeout());
+            request.setReadTimeout(difyProperties.getReadTimeout());
+            
+            // 设置请求体
+            if (body != null) {
+                if (body instanceof String) {
+                    request.body((String) body);
+                } else {
+                    request.body(JSONUtil.toJsonStr(body));
+                }
+            }
+            
+            HttpResponse response = request.execute();
+            if (!response.isOk()) {
+                handleErrorResponse(response.getStatus(), response.body());
+            }
+        } catch (Exception e) {
+            if (e instanceof DifyApiException) {
+                throw (DifyApiException) e;
+            }
+            log.error("DELETE请求异常: {}", url, e);
+            throw new DifyApiException("DELETE请求异常: " + e.getMessage());
         }
     }
 } 
